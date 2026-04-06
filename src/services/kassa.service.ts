@@ -1,0 +1,129 @@
+import { getDb } from "../db/client";
+import type { User } from "../types/entities";
+
+export type KassaPeriod = "day" | "week" | "month" | "all";
+
+export interface KassaSummary {
+  period: KassaPeriod;
+  totalAmount: number;
+  totalCount: number;
+}
+
+export interface KassaTopWorker extends Pick<User, "id" | "telegram_id" | "username" | "first_name"> {
+  totalAmount: number;
+  totalCount: number;
+}
+
+export interface WorkerProfitMetrics {
+  totalCount: number;
+  totalAmount: number;
+  avgAmount: number;
+  bestAmount: number;
+}
+
+function toSqliteDateTime(date: Date) {
+  return date.toISOString().slice(0, 19).replace("T", " ");
+}
+
+function getPeriodStart(period: KassaPeriod) {
+  if (period === "all") {
+    return null;
+  }
+
+  const date = new Date();
+
+  if (period === "day") {
+    date.setHours(0, 0, 0, 0);
+    return toSqliteDateTime(date);
+  }
+
+  if (period === "week") {
+    const currentDay = date.getDay();
+    const delta = currentDay === 0 ? 6 : currentDay - 1;
+    date.setDate(date.getDate() - delta);
+    date.setHours(0, 0, 0, 0);
+    return toSqliteDateTime(date);
+  }
+
+  date.setDate(1);
+  date.setHours(0, 0, 0, 0);
+  return toSqliteDateTime(date);
+}
+
+function buildApprovedWhereClause(period: KassaPeriod) {
+  const start = getPeriodStart(period);
+  if (!start) {
+    return {
+      clause: "WHERE payment_requests.status = 'approved'",
+      params: [] as Array<string | number>,
+    };
+  }
+
+  return {
+    clause: "WHERE payment_requests.status = 'approved' AND payment_requests.created_at >= ?",
+    params: [start] as Array<string | number>,
+  };
+}
+
+export async function getKassaSummary(period: KassaPeriod): Promise<KassaSummary> {
+  const db = await getDb();
+  const { clause, params } = buildApprovedWhereClause(period);
+  const row = await db.get<{ totalAmount: number; totalCount: number }>(
+    `SELECT
+      COALESCE(SUM(amount), 0) AS totalAmount,
+      COUNT(*) AS totalCount
+     FROM payment_requests
+     ${clause}`,
+    ...params,
+  );
+
+  return {
+    period,
+    totalAmount: row?.totalAmount ?? 0,
+    totalCount: row?.totalCount ?? 0,
+  };
+}
+
+export async function getTopWorkers(period: KassaPeriod, limit = 5): Promise<KassaTopWorker[]> {
+  const db = await getDb();
+  const { clause, params } = buildApprovedWhereClause(period);
+
+  return db.all<KassaTopWorker[]>(
+    `SELECT
+      users.id,
+      users.telegram_id,
+      users.username,
+      users.first_name,
+      COALESCE(SUM(payment_requests.amount), 0) AS totalAmount,
+      COUNT(payment_requests.id) AS totalCount
+     FROM payment_requests
+     JOIN users ON users.id = payment_requests.worker_user_id
+     ${clause} AND payment_requests.worker_user_id IS NOT NULL
+     GROUP BY users.id, users.telegram_id, users.username, users.first_name
+     ORDER BY totalAmount DESC, totalCount DESC, users.id ASC
+     LIMIT ?`,
+    ...params,
+    limit,
+  );
+}
+
+export async function getWorkerProfitMetrics(workerUserId: number): Promise<WorkerProfitMetrics> {
+  const db = await getDb();
+  const row = await db.get<WorkerProfitMetrics>(
+    `SELECT
+      COUNT(*) AS totalCount,
+      COALESCE(SUM(amount), 0) AS totalAmount,
+      COALESCE(AVG(amount), 0) AS avgAmount,
+      COALESCE(MAX(amount), 0) AS bestAmount
+     FROM payment_requests
+     WHERE worker_user_id = ? AND status = 'approved'`,
+    workerUserId,
+  );
+
+  return {
+    totalCount: row?.totalCount ?? 0,
+    totalAmount: row?.totalAmount ?? 0,
+    avgAmount: row?.avgAmount ?? 0,
+    bestAmount: row?.bestAmount ?? 0,
+  };
+}
