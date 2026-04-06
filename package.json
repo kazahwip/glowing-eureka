@@ -2,19 +2,19 @@
   "name": "awake-bots",
   "version": "1.0.0",
   "description": "Система из двух Telegram-ботов на Node.js + TypeScript + Telegraf",
-  "main": "dist/apps/teambot.js",
+  "main": "bothost.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev:team": "tsx watch src/apps/teambot.ts",
     "dev:service": "tsx watch src/apps/servicebot.ts",
-    "start": "node dist/apps/bothost.js",
-    "start:bothost": "node dist/apps/bothost.js",
-    "start:team": "node dist/apps/teambot.js",
-    "start:service": "node dist/apps/servicebot.js",
+    "start": "node bothost.js",
+    "start:bothost": "node bothost.js",
+    "start:team": "node teambot.js",
+    "start:service": "node servicebot.js",
     "db:init": "tsx src/db/init.ts"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=18"
   },
   "keywords": [
     "telegram",
@@ -36,4 +36,3 @@
     "typescript": "^5.9.3"
   }
 }
-

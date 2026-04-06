@@ -122,6 +122,7 @@ npm run start:service
 ### Что уже подготовлено
 
 - добавлен единый launcher: `src/apps/bothost.ts`
+- добавлен root-launcher `bothost.js` для платформ, которые ждут файл в корне проекта
 - `npm start` запускает нужного бота через переменную `BOT_INSTANCE`
 - есть `.env.example` под прод-окружение
 - `.gitignore` исключает `.env`, `data/`, `logs/`, `dist/` и `node_modules`
@@ -155,6 +156,12 @@ npm install && npm run build
 
 ```bash
 npm start
+```
+
+7. Если в панели есть поле `Главный файл`, указывайте:
+
+```text
+bothost.js
 ```
 
 ### Важно по хранилищу
@@ -197,4 +204,3 @@ DEFAULT_TRANSFER_DETAILS=2200701789834873 Т-банк
 - `/start`
 - `/awake`
 - `/worker`
-
