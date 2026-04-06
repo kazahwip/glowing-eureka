@@ -3,6 +3,7 @@ export type UserStatus = "active" | "inactive";
 export type BotKind = "teambot" | "servicebot";
 export type CardCategory = "girls" | "pepper";
 export type CardReviewStatus = "pending" | "approved" | "rejected";
+export type CuratorRequestStatus = "pending" | "accepted" | "rejected";
 
 export interface User {
   id: number;
@@ -25,9 +26,21 @@ export interface User {
 export interface Curator {
   id: number;
   name: string;
+  telegram_username: string | null;
+  linked_user_id: number | null;
   description: string | null;
   is_active: number;
   created_at: string;
+}
+
+export interface CuratorRequest {
+  id: number;
+  user_id: number;
+  curator_id: number;
+  status: CuratorRequestStatus;
+  reviewed_by_user_id: number | null;
+  created_at: string;
+  reviewed_at: string | null;
 }
 
 export interface Card {

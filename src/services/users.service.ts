@@ -34,6 +34,16 @@ export async function getUserByTelegramId(telegramId: number) {
   return db.get<User>("SELECT * FROM users WHERE telegram_id = ?", telegramId);
 }
 
+export async function getUserByUsername(username: string) {
+  const normalized = username.trim().replace(/^@+/, "");
+  if (!normalized) {
+    return null;
+  }
+
+  const db = await getDb();
+  return db.get<User>("SELECT * FROM users WHERE username IS NOT NULL AND LOWER(username) = LOWER(?)", normalized);
+}
+
 export async function getUserById(userId: number) {
   const db = await getDb();
   return db.get<User>("SELECT * FROM users WHERE id = ?", userId);

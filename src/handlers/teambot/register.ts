@@ -1,10 +1,18 @@
 import type { Telegraf } from "telegraf";
 import { adminRoleKeyboard } from "../../keyboards/admin";
+import { curatorRequestDecisionKeyboard } from "../../keyboards/teambot";
 import { BACK_BUTTON, TEAMBOT_MAIN_MENU, TEAM_WORK_MENU } from "../../config/constants";
 import { getServicebotTelegram, getTeambotTelegram } from "../../services/bot-clients.service";
 import { notifyWorkerAboutCardReviewDecision } from "../../services/card-review.service";
 import { approveCard, deleteCard, rejectCard } from "../../services/cards.service";
-import { deleteCurator, unassignCuratorFromUser } from "../../services/curators.service";
+import {
+  acceptCuratorRequest,
+  createCuratorRequest,
+  deleteCurator,
+  rejectCuratorRequest,
+  syncCuratorsForUser,
+  unassignCuratorFromUser,
+} from "../../services/curators.service";
 import { getKassaSummary, getTopWorkers } from "../../services/kassa.service";
 import { logAdminAction } from "../../services/logging.service";
 import { approvePaymentRequest, rejectPaymentRequest, type PaymentRequestWithUser } from "../../services/payment-requests.service";
@@ -21,14 +29,15 @@ import {
   showAdminCurator,
   showAdminCurators,
   showAdminErrorLogs,
-  showAdminOwnerCards,
   showAdminHome,
   showAdminLogsMenu,
+  showAdminOwnerCards,
   showAdminProjectStats,
   showAdminStats,
   showAdminTransfer,
   showAdminUserProfile,
   showAdminUsersMenu,
+  showCuratorsChatList,
   showCuratorsScreen,
   showProfileScreen,
   showProjectInfoScreen,
@@ -36,8 +45,8 @@ import {
   showTeambotHome,
   showTeamWorkMenu,
   showTeamWorkSettings,
-  showWorkerReferralScreen,
   showTransferScreen,
+  showWorkerReferralScreen,
 } from "./views";
 
 async function answerCallback(ctx: AppContext) {
@@ -67,7 +76,73 @@ async function notifyClientAboutPaymentDecision(telegramId: number, text: string
   }
 }
 
-function buildTopWorkersSection(title: string, workers: Array<{ totalAmount: number; totalCount: number; telegram_id: number; username: string | null; first_name: string | null }>) {
+async function notifyCuratorAboutRequest(
+  request: NonNullable<Awaited<ReturnType<typeof createCuratorRequest>>["request"]>,
+) {
+  if (!request.curator_linked_telegram_id) {
+    return false;
+  }
+
+  try {
+    await getTeambotTelegram().sendMessage(
+      request.curator_linked_telegram_id,
+      [
+        "<b>🧑‍💼 Новая заявка на кураторство</b>",
+        "",
+        `Воркер: ${escapeHtml(
+          formatUserLabel({
+            telegram_id: request.worker_telegram_id,
+            username: request.worker_username,
+            first_name: request.worker_first_name,
+          }),
+        )}`,
+        `Telegram ID: <code>${request.worker_telegram_id}</code>`,
+        `Куратор: <b>${escapeHtml(request.curator_name)}</b>${
+          request.curator_telegram_username ? ` (@${escapeHtml(request.curator_telegram_username)})` : ""
+        }`,
+        "",
+        "Примите или отклоните заявку кнопками ниже.",
+      ].join("\n"),
+      {
+        parse_mode: "HTML",
+        ...curatorRequestDecisionKeyboard(request.id),
+      },
+    );
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function notifyWorkerAboutCuratorDecision(
+  request: NonNullable<Awaited<ReturnType<typeof acceptCuratorRequest>>["request"]>,
+  decision: "accepted" | "rejected",
+) {
+  try {
+    await getTeambotTelegram().sendMessage(
+      request.worker_telegram_id,
+      [
+        decision === "accepted" ? "<b>✅ Заявка на куратора принята</b>" : "<b>❌ Заявка на куратора отклонена</b>",
+        "",
+        `Куратор: <b>${escapeHtml(request.curator_name)}</b>${
+          request.curator_telegram_username ? ` (@${escapeHtml(request.curator_telegram_username)})` : ""
+        }`,
+        decision === "accepted"
+          ? "Куратор теперь закреплён за вами и будет отображаться в профиле."
+          : "Можно выбрать другого куратора из актуального списка.",
+      ].join("\n"),
+      { parse_mode: "HTML" },
+    );
+  } catch {
+    // ignore delivery errors
+  }
+}
+
+function buildTopWorkersSection(
+  title: string,
+  workers: Array<{ totalAmount: number; totalCount: number; telegram_id: number; username: string | null; first_name: string | null }>,
+) {
   const lines = [`<b>${title}</b>`];
 
   if (!workers.length) {
@@ -106,7 +181,7 @@ async function buildKassaText() {
     `Месяц: ${month.totalCount} проф. • ${formatMoney(month.totalAmount)}`,
     `Все время: ${allTime.totalCount} проф. • ${formatMoney(allTime.totalAmount)}`,
     "",
-    `<b>Проект</b>`,
+    "<b>Проект</b>",
     `Подтверждено профитов: ${projectStats.totalProfits}`,
     `Сумма профитов: ${formatMoney(projectStats.totalProfitAmount)}`,
     "",
@@ -159,6 +234,10 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
     });
 
     ctx.state.user = user ?? undefined;
+    if (user) {
+      await syncCuratorsForUser(user.id, ctx.from.username);
+    }
+
     await showTeambotHome(ctx);
   });
 
@@ -188,6 +267,23 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
         inline_keyboard: [[{ text: "🔄 Обновить", callback_data: "team:kassa:refresh" }]],
       },
     });
+  });
+
+  bot.command("curators", async (ctx) => {
+    if (!isTeamMember(ctx)) {
+      await ctx.reply("Команда доступна только участникам команды.");
+      return;
+    }
+
+    await showCuratorsChatList(ctx);
+  });
+
+  bot.hears(/мануал/i, async (ctx) => {
+    if (!ctx.chat || ctx.chat.type === "private") {
+      return;
+    }
+
+    await ctx.reply("📚 Канал с мануалами: https://t.me/+oIbWAAT7mIM3YzEx");
   });
 
   bot.hears(TEAMBOT_MAIN_MENU[0], showTeamWorkMenu);
@@ -225,6 +321,115 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
     await showProjectInfoScreen(ctx);
   });
 
+  bot.action("team:curators:back", async (ctx) => {
+    await answerCallback(ctx);
+    await showTeambotHome(ctx);
+  });
+
+  bot.action("team:curator:noop", async (ctx) => {
+    await ctx.answerCbQuery("У этого куратора пока нет публичного username.");
+  });
+
+  bot.action("team:curator:assigned", async (ctx) => {
+    await ctx.answerCbQuery("Этот куратор уже закреплён за вами.");
+  });
+
+  bot.action(/^team:curator:request:(\d+)$/, async (ctx) => {
+    if (!ctx.state.user) {
+      await ctx.answerCbQuery("Сначала выполните /start", { show_alert: true }).catch(() => undefined);
+      return;
+    }
+
+    const curatorId = Number(ctx.match[1]);
+    const result = await createCuratorRequest(ctx.state.user.id, curatorId);
+
+    if (result.status === "missing") {
+      await ctx.answerCbQuery("Куратор не найден.", { show_alert: true }).catch(() => undefined);
+      return;
+    }
+
+    if (result.status === "unavailable") {
+      await ctx.answerCbQuery("Этот куратор пока не может принимать заявки.", { show_alert: true }).catch(() => undefined);
+      return;
+    }
+
+    if (result.status === "self") {
+      await ctx.answerCbQuery("Нельзя отправить заявку самому себе.", { show_alert: true }).catch(() => undefined);
+      return;
+    }
+
+    if (result.status === "worker_missing") {
+      await ctx.answerCbQuery("Сначала выполните /start", { show_alert: true }).catch(() => undefined);
+      return;
+    }
+
+    if (result.status === "already_assigned") {
+      await ctx.answerCbQuery("Этот куратор уже закреплён за вами.", { show_alert: true }).catch(() => undefined);
+      return;
+    }
+
+    if (result.status === "pending_exists") {
+      await ctx.answerCbQuery("Заявка уже отправлена и ждёт ответа.", { show_alert: true }).catch(() => undefined);
+      return;
+    }
+
+    if (!result.request) {
+      await ctx.answerCbQuery("Не удалось создать заявку.", { show_alert: true }).catch(() => undefined);
+      return;
+    }
+
+    const delivered = await notifyCuratorAboutRequest(result.request);
+    await ctx.answerCbQuery("Заявка отправлена куратору.").catch(() => undefined);
+    await ctx.reply(
+      delivered
+        ? "📨 Заявка отправлена куратору. Ответ придёт в teambot."
+        : "📨 Заявка создана, но уведомление куратору пока не доставлено. Он увидит её после следующего входа в teambot.",
+    );
+  });
+
+  bot.action(/^team:curator-request:(\d+):(accept|reject)$/, async (ctx) => {
+    if (!ctx.state.user) {
+      await ctx.answerCbQuery("Сначала выполните /start", { show_alert: true }).catch(() => undefined);
+      return;
+    }
+
+    const requestId = Number(ctx.match[1]);
+    const decision = ctx.match[2] as "accept" | "reject";
+    const result =
+      decision === "accept"
+        ? await acceptCuratorRequest(requestId, ctx.state.user.id)
+        : await rejectCuratorRequest(requestId, ctx.state.user.id);
+
+    if (result.status === "missing") {
+      await ctx.answerCbQuery("Заявка не найдена.", { show_alert: true }).catch(() => undefined);
+      return;
+    }
+
+    if (result.status === "forbidden") {
+      await ctx.answerCbQuery("Эта заявка адресована другому куратору.", { show_alert: true }).catch(() => undefined);
+      return;
+    }
+
+    if (result.status === "processed") {
+      await ctx.answerCbQuery("Заявка уже обработана.", { show_alert: true }).catch(() => undefined);
+      return;
+    }
+
+    if (!result.request) {
+      await ctx.answerCbQuery("Не удалось обработать заявку.", { show_alert: true }).catch(() => undefined);
+      return;
+    }
+
+    await ctx.answerCbQuery(decision === "accept" ? "Заявка принята." : "Заявка отклонена.").catch(() => undefined);
+    await notifyWorkerAboutCuratorDecision(result.request, decision === "accept" ? "accepted" : "rejected");
+    await ctx.editMessageReplyMarkup({ inline_keyboard: [] }).catch(() => undefined);
+    await ctx.reply(
+      decision === "accept"
+        ? "✅ Заявка принята. Воркер закреплён за вами как за куратором."
+        : "❌ Заявка на кураторство отклонена.",
+    );
+  });
+
   bot.action("team:kassa:refresh", async (ctx) => {
     await answerCallback(ctx);
     if (!isTeamMember(ctx)) {
@@ -245,6 +450,7 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
     if (!isAdmin(ctx)) {
       return;
     }
+
     await showAdminHome(ctx);
   });
 
@@ -253,6 +459,7 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
     if (!isAdmin(ctx)) {
       return;
     }
+
     await showAdminStats(ctx);
   });
 
@@ -261,6 +468,7 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
     if (!isAdmin(ctx)) {
       return;
     }
+
     await showAdminUsersMenu(ctx);
   });
 
@@ -269,6 +477,7 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
     if (!isAdmin(ctx)) {
       return;
     }
+
     await showAdminCardsMenu(ctx);
   });
 
@@ -277,6 +486,7 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
     if (!isAdmin(ctx)) {
       return;
     }
+
     await showRecentUsers(ctx);
   });
 
@@ -285,6 +495,7 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
     if (!isAdmin(ctx)) {
       return;
     }
+
     await ctx.scene.enter("admin-user-search");
   });
 
@@ -361,10 +572,35 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
 
     const userId = Number(ctx.match[1]);
     const role = ctx.match[2] as "client" | "worker" | "curator" | "admin";
-    await setUserRole(userId, role);
+    const updatedUser = await setUserRole(userId, role);
+    if (updatedUser) {
+      await syncCuratorsForUser(updatedUser.id, updatedUser.username);
+    }
+
     if (ctx.state.user) {
       await logAdminAction(ctx.state.user.id, "set_user_role", `user:${userId}; role:${role}`);
     }
+
+    await showAdminUserProfile(ctx, userId);
+  });
+
+  bot.action(/^admin:user:(\d+):(make-curator|make-worker)$/, async (ctx) => {
+    await answerCallback(ctx);
+    if (!isAdmin(ctx)) {
+      return;
+    }
+
+    const userId = Number(ctx.match[1]);
+    const role = ctx.match[2] === "make-curator" ? "curator" : "worker";
+    const updatedUser = await setUserRole(userId, role);
+    if (updatedUser) {
+      await syncCuratorsForUser(updatedUser.id, updatedUser.username);
+    }
+
+    if (ctx.state.user) {
+      await logAdminAction(ctx.state.user.id, "quick_set_user_role", `user:${userId}; role:${role}`);
+    }
+
     await showAdminUserProfile(ctx, userId);
   });
 
@@ -385,6 +621,7 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
     if (ctx.state.user) {
       await logAdminAction(ctx.state.user.id, "toggle_block_user", `user:${userId}; blocked:${user.is_blocked === 0}`);
     }
+
     await showAdminUserProfile(ctx, userId);
   });
 
@@ -420,6 +657,7 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
     if (ctx.state.user) {
       await logAdminAction(ctx.state.user.id, "unassign_curator", `user:${user.id}`);
     }
+
     await showAdminUserProfile(ctx, user.id);
   });
 
@@ -428,6 +666,7 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
     if (!isAdmin(ctx)) {
       return;
     }
+
     await showAdminCurators(ctx);
   });
 
@@ -436,6 +675,7 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
     if (!isAdmin(ctx)) {
       return;
     }
+
     await showAdminCurator(ctx, Number(ctx.match[1]));
   });
 
@@ -450,6 +690,7 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
     if (ctx.state.user) {
       await logAdminAction(ctx.state.user.id, "delete_curator", `curator:${curatorId}`);
     }
+
     await showAdminCurators(ctx);
   });
 
@@ -458,6 +699,7 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
     if (!isAdmin(ctx)) {
       return;
     }
+
     await ctx.scene.enter("admin-curator-add");
   });
 
@@ -466,6 +708,7 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
     if (!isAdmin(ctx)) {
       return;
     }
+
     ctx.session.curatorDraft = {};
     await ctx.scene.enter("admin-curator-assign");
   });
@@ -475,6 +718,7 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
     if (!isAdmin(ctx)) {
       return;
     }
+
     await ctx.scene.enter("admin-curator-unassign");
   });
 
@@ -483,6 +727,7 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
     if (!isAdmin(ctx)) {
       return;
     }
+
     await showAdminTransfer(ctx);
   });
 
@@ -491,6 +736,7 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
     if (!isAdmin(ctx)) {
       return;
     }
+
     await ctx.scene.enter("admin-transfer-edit");
   });
 
@@ -499,6 +745,7 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
     if (!isAdmin(ctx)) {
       return;
     }
+
     await showAdminProjectStats(ctx);
   });
 
@@ -507,6 +754,7 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
     if (!isAdmin(ctx)) {
       return;
     }
+
     await ctx.scene.enter("admin-project-stats-edit");
   });
 
@@ -520,6 +768,7 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
     if (ctx.state.user) {
       await logAdminAction(ctx.state.user.id, "recalculate_project_stats", JSON.stringify(stats));
     }
+
     await showAdminProjectStats(ctx);
   });
 
@@ -568,7 +817,7 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
         [
           "<b>❌ Пополнение отклонено</b>",
           "Администратор не подтвердил перевод.",
-          "Проверьте чек и отправьте подтверждение еще раз.",
+          "Проверьте чек и отправьте подтверждение ещё раз.",
         ].join("\n"),
       );
       await ctx.reply(`Заявка #${requestId} отклонена.`);
@@ -617,6 +866,7 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
     if (!isAdmin(ctx)) {
       return;
     }
+
     await ctx.scene.enter("admin-broadcast");
   });
 
@@ -625,6 +875,7 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
     if (!isAdmin(ctx)) {
       return;
     }
+
     await showAdminLogsMenu(ctx);
   });
 
@@ -633,6 +884,7 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
     if (!isAdmin(ctx)) {
       return;
     }
+
     await showAdminActionLogs(ctx);
   });
 
@@ -641,6 +893,7 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
     if (!isAdmin(ctx)) {
       return;
     }
+
     await showAdminErrorLogs(ctx);
   });
 

@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.registerTeambotHandlers = registerTeambotHandlers;
 const admin_1 = require("../../keyboards/admin");
+const teambot_1 = require("../../keyboards/teambot");
 const constants_1 = require("../../config/constants");
 const bot_clients_service_1 = require("../../services/bot-clients.service");
 const card_review_service_1 = require("../../services/card-review.service");
@@ -33,6 +34,48 @@ function isTeamMember(ctx) {
 async function notifyClientAboutPaymentDecision(telegramId, text) {
     try {
         await (0, bot_clients_service_1.getServicebotTelegram)().sendMessage(telegramId, text, { parse_mode: "HTML" });
+    }
+    catch {
+        // ignore delivery errors
+    }
+}
+async function notifyCuratorAboutRequest(request) {
+    if (!request.curator_linked_telegram_id) {
+        return false;
+    }
+    try {
+        await (0, bot_clients_service_1.getTeambotTelegram)().sendMessage(request.curator_linked_telegram_id, [
+            "<b>🧑‍💼 Новая заявка на кураторство</b>",
+            "",
+            `Воркер: ${(0, text_1.escapeHtml)((0, text_1.formatUserLabel)({
+                telegram_id: request.worker_telegram_id,
+                username: request.worker_username,
+                first_name: request.worker_first_name,
+            }))}`,
+            `Telegram ID: <code>${request.worker_telegram_id}</code>`,
+            `Куратор: <b>${(0, text_1.escapeHtml)(request.curator_name)}</b>${request.curator_telegram_username ? ` (@${(0, text_1.escapeHtml)(request.curator_telegram_username)})` : ""}`,
+            "",
+            "Примите или отклоните заявку кнопками ниже.",
+        ].join("\n"), {
+            parse_mode: "HTML",
+            ...(0, teambot_1.curatorRequestDecisionKeyboard)(request.id),
+        });
+        return true;
+    }
+    catch {
+        return false;
+    }
+}
+async function notifyWorkerAboutCuratorDecision(request, decision) {
+    try {
+        await (0, bot_clients_service_1.getTeambotTelegram)().sendMessage(request.worker_telegram_id, [
+            decision === "accepted" ? "<b>✅ Заявка на куратора принята</b>" : "<b>❌ Заявка на куратора отклонена</b>",
+            "",
+            `Куратор: <b>${(0, text_1.escapeHtml)(request.curator_name)}</b>${request.curator_telegram_username ? ` (@${(0, text_1.escapeHtml)(request.curator_telegram_username)})` : ""}`,
+            decision === "accepted"
+                ? "Куратор теперь закреплён за вами и будет отображаться в профиле."
+                : "Можно выбрать другого куратора из актуального списка.",
+        ].join("\n"), { parse_mode: "HTML" });
     }
     catch {
         // ignore delivery errors
@@ -72,7 +115,7 @@ async function buildKassaText() {
         `Месяц: ${month.totalCount} проф. • ${(0, text_1.formatMoney)(month.totalAmount)}`,
         `Все время: ${allTime.totalCount} проф. • ${(0, text_1.formatMoney)(allTime.totalAmount)}`,
         "",
-        `<b>Проект</b>`,
+        "<b>Проект</b>",
         `Подтверждено профитов: ${projectStats.totalProfits}`,
         `Сумма профитов: ${(0, text_1.formatMoney)(projectStats.totalProfitAmount)}`,
         "",
@@ -119,6 +162,9 @@ function registerTeambotHandlers(bot) {
             firstName: ctx.from.first_name,
         });
         ctx.state.user = user ?? undefined;
+        if (user) {
+            await (0, curators_service_1.syncCuratorsForUser)(user.id, ctx.from.username);
+        }
         await (0, views_1.showTeambotHome)(ctx);
     });
     bot.command("admin", async (ctx) => {
@@ -143,6 +189,19 @@ function registerTeambotHandlers(bot) {
                 inline_keyboard: [[{ text: "🔄 Обновить", callback_data: "team:kassa:refresh" }]],
             },
         });
+    });
+    bot.command("curators", async (ctx) => {
+        if (!isTeamMember(ctx)) {
+            await ctx.reply("Команда доступна только участникам команды.");
+            return;
+        }
+        await (0, views_1.showCuratorsChatList)(ctx);
+    });
+    bot.hears(/мануал/i, async (ctx) => {
+        if (!ctx.chat || ctx.chat.type === "private") {
+            return;
+        }
+        await ctx.reply("📚 Канал с мануалами: https://t.me/+oIbWAAT7mIM3YzEx");
     });
     bot.hears(constants_1.TEAMBOT_MAIN_MENU[0], views_1.showTeamWorkMenu);
     bot.hears(constants_1.TEAMBOT_MAIN_MENU[1], views_1.showTransferScreen);
@@ -172,6 +231,90 @@ function registerTeambotHandlers(bot) {
     bot.action("team:menu:project", async (ctx) => {
         await answerCallback(ctx);
         await (0, views_1.showProjectInfoScreen)(ctx);
+    });
+    bot.action("team:curators:back", async (ctx) => {
+        await answerCallback(ctx);
+        await (0, views_1.showTeambotHome)(ctx);
+    });
+    bot.action("team:curator:noop", async (ctx) => {
+        await ctx.answerCbQuery("У этого куратора пока нет публичного username.");
+    });
+    bot.action("team:curator:assigned", async (ctx) => {
+        await ctx.answerCbQuery("Этот куратор уже закреплён за вами.");
+    });
+    bot.action(/^team:curator:request:(\d+)$/, async (ctx) => {
+        if (!ctx.state.user) {
+            await ctx.answerCbQuery("Сначала выполните /start", { show_alert: true }).catch(() => undefined);
+            return;
+        }
+        const curatorId = Number(ctx.match[1]);
+        const result = await (0, curators_service_1.createCuratorRequest)(ctx.state.user.id, curatorId);
+        if (result.status === "missing") {
+            await ctx.answerCbQuery("Куратор не найден.", { show_alert: true }).catch(() => undefined);
+            return;
+        }
+        if (result.status === "unavailable") {
+            await ctx.answerCbQuery("Этот куратор пока не может принимать заявки.", { show_alert: true }).catch(() => undefined);
+            return;
+        }
+        if (result.status === "self") {
+            await ctx.answerCbQuery("Нельзя отправить заявку самому себе.", { show_alert: true }).catch(() => undefined);
+            return;
+        }
+        if (result.status === "worker_missing") {
+            await ctx.answerCbQuery("Сначала выполните /start", { show_alert: true }).catch(() => undefined);
+            return;
+        }
+        if (result.status === "already_assigned") {
+            await ctx.answerCbQuery("Этот куратор уже закреплён за вами.", { show_alert: true }).catch(() => undefined);
+            return;
+        }
+        if (result.status === "pending_exists") {
+            await ctx.answerCbQuery("Заявка уже отправлена и ждёт ответа.", { show_alert: true }).catch(() => undefined);
+            return;
+        }
+        if (!result.request) {
+            await ctx.answerCbQuery("Не удалось создать заявку.", { show_alert: true }).catch(() => undefined);
+            return;
+        }
+        const delivered = await notifyCuratorAboutRequest(result.request);
+        await ctx.answerCbQuery("Заявка отправлена куратору.").catch(() => undefined);
+        await ctx.reply(delivered
+            ? "📨 Заявка отправлена куратору. Ответ придёт в teambot."
+            : "📨 Заявка создана, но уведомление куратору пока не доставлено. Он увидит её после следующего входа в teambot.");
+    });
+    bot.action(/^team:curator-request:(\d+):(accept|reject)$/, async (ctx) => {
+        if (!ctx.state.user) {
+            await ctx.answerCbQuery("Сначала выполните /start", { show_alert: true }).catch(() => undefined);
+            return;
+        }
+        const requestId = Number(ctx.match[1]);
+        const decision = ctx.match[2];
+        const result = decision === "accept"
+            ? await (0, curators_service_1.acceptCuratorRequest)(requestId, ctx.state.user.id)
+            : await (0, curators_service_1.rejectCuratorRequest)(requestId, ctx.state.user.id);
+        if (result.status === "missing") {
+            await ctx.answerCbQuery("Заявка не найдена.", { show_alert: true }).catch(() => undefined);
+            return;
+        }
+        if (result.status === "forbidden") {
+            await ctx.answerCbQuery("Эта заявка адресована другому куратору.", { show_alert: true }).catch(() => undefined);
+            return;
+        }
+        if (result.status === "processed") {
+            await ctx.answerCbQuery("Заявка уже обработана.", { show_alert: true }).catch(() => undefined);
+            return;
+        }
+        if (!result.request) {
+            await ctx.answerCbQuery("Не удалось обработать заявку.", { show_alert: true }).catch(() => undefined);
+            return;
+        }
+        await ctx.answerCbQuery(decision === "accept" ? "Заявка принята." : "Заявка отклонена.").catch(() => undefined);
+        await notifyWorkerAboutCuratorDecision(result.request, decision === "accept" ? "accepted" : "rejected");
+        await ctx.editMessageReplyMarkup({ inline_keyboard: [] }).catch(() => undefined);
+        await ctx.reply(decision === "accept"
+            ? "✅ Заявка принята. Воркер закреплён за вами как за куратором."
+            : "❌ Заявка на кураторство отклонена.");
     });
     bot.action("team:kassa:refresh", async (ctx) => {
         await answerCallback(ctx);
@@ -287,9 +430,28 @@ function registerTeambotHandlers(bot) {
         }
         const userId = Number(ctx.match[1]);
         const role = ctx.match[2];
-        await (0, users_service_1.setUserRole)(userId, role);
+        const updatedUser = await (0, users_service_1.setUserRole)(userId, role);
+        if (updatedUser) {
+            await (0, curators_service_1.syncCuratorsForUser)(updatedUser.id, updatedUser.username);
+        }
         if (ctx.state.user) {
             await (0, logging_service_1.logAdminAction)(ctx.state.user.id, "set_user_role", `user:${userId}; role:${role}`);
+        }
+        await (0, views_1.showAdminUserProfile)(ctx, userId);
+    });
+    bot.action(/^admin:user:(\d+):(make-curator|make-worker)$/, async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx)) {
+            return;
+        }
+        const userId = Number(ctx.match[1]);
+        const role = ctx.match[2] === "make-curator" ? "curator" : "worker";
+        const updatedUser = await (0, users_service_1.setUserRole)(userId, role);
+        if (updatedUser) {
+            await (0, curators_service_1.syncCuratorsForUser)(updatedUser.id, updatedUser.username);
+        }
+        if (ctx.state.user) {
+            await (0, logging_service_1.logAdminAction)(ctx.state.user.id, "quick_set_user_role", `user:${userId}; role:${role}`);
         }
         await (0, views_1.showAdminUserProfile)(ctx, userId);
     });
@@ -460,7 +622,7 @@ function registerTeambotHandlers(bot) {
             await notifyClientAboutPaymentDecision(result.request.telegram_id, [
                 "<b>❌ Пополнение отклонено</b>",
                 "Администратор не подтвердил перевод.",
-                "Проверьте чек и отправьте подтверждение еще раз.",
+                "Проверьте чек и отправьте подтверждение ещё раз.",
             ].join("\n"));
             await ctx.reply(`Заявка #${requestId} отклонена.`);
         }

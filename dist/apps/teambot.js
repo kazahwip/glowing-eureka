@@ -47,6 +47,7 @@ async function launchTeambot() {
         await bot.telegram.setMyCommands([
             { command: "start", description: "Открыть главное меню" },
             { command: "kassa", description: "Касса проекта" },
+            { command: "curators", description: "Список кураторов" },
             { command: "admin", description: "Открыть админ-панель" },
         ]);
         await bot.launch();

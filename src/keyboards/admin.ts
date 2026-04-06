@@ -23,10 +23,16 @@ export function adminUsersKeyboard() {
   ]);
 }
 
-export function adminUserActionsKeyboard(userId: number, isBlocked: boolean, hasCurator: boolean) {
+export function adminUserActionsKeyboard(userId: number, role: UserRole, isBlocked: boolean, hasCurator: boolean) {
   return Markup.inlineKeyboard([
     [Markup.button.callback("🪪 Сменить роль", `admin:user:${userId}:role`)],
     [Markup.button.callback(isBlocked ? "✅ Разблокировать" : "⛔ Заблокировать", `admin:user:${userId}:block`)],
+    [
+      Markup.button.callback(
+        role === "curator" ? "💼 Сделать воркером" : "🧑‍💼 Сделать куратором",
+        `admin:user:${userId}:${role === "curator" ? "make-worker" : "make-curator"}`,
+      ),
+    ],
     [
       Markup.button.callback(
         hasCurator ? "➖ Снять куратора" : "➕ Назначить куратора",
@@ -90,7 +96,10 @@ export function adminCardDeleteConfirmKeyboard(cardId: number, ownerUserId: numb
 
 export function adminCuratorsKeyboard(curators: Curator[]) {
   const rows = curators.map((curator) => [
-    Markup.button.callback(`🧑‍💼 ${curator.id}. ${curator.name}`, `admin:curator:view:${curator.id}`),
+    Markup.button.callback(
+      `🧑‍💼 ${curator.id}. ${curator.name}${curator.telegram_username ? ` (@${curator.telegram_username})` : ""}`,
+      `admin:curator:view:${curator.id}`,
+    ),
   ]);
 
   rows.push(
@@ -103,11 +112,17 @@ export function adminCuratorsKeyboard(curators: Curator[]) {
   return Markup.inlineKeyboard(rows);
 }
 
-export function adminCuratorActionsKeyboard(curatorId: number) {
-  return Markup.inlineKeyboard([
-    [Markup.button.callback("🗑 Удалить куратора", `admin:curator:delete:${curatorId}`)],
-    [Markup.button.callback("⬅️ Назад", "admin:curators")],
-  ]);
+export function adminCuratorActionsKeyboard(curatorId: number, telegramUsername?: string | null) {
+  const rows = [];
+
+  if (telegramUsername) {
+    rows.push([Markup.button.url("👤 Открыть профиль", `https://t.me/${telegramUsername}`)]);
+  }
+
+  rows.push([Markup.button.callback("🗑 Удалить куратора", `admin:curator:delete:${curatorId}`)]);
+  rows.push([Markup.button.callback("⬅️ Назад", "admin:curators")]);
+
+  return Markup.inlineKeyboard(rows);
 }
 
 export function adminProjectStatsKeyboard() {

@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getUserByTelegramId = getUserByTelegramId;
+exports.getUserByUsername = getUserByUsername;
 exports.getUserById = getUserById;
 exports.registerTeambotUser = registerTeambotUser;
 exports.registerServicebotUser = registerServicebotUser;
@@ -35,6 +36,14 @@ function getNextServicebotRole(currentRole, telegramId) {
 async function getUserByTelegramId(telegramId) {
     const db = await (0, client_1.getDb)();
     return db.get("SELECT * FROM users WHERE telegram_id = ?", telegramId);
+}
+async function getUserByUsername(username) {
+    const normalized = username.trim().replace(/^@+/, "");
+    if (!normalized) {
+        return null;
+    }
+    const db = await (0, client_1.getDb)();
+    return db.get("SELECT * FROM users WHERE username IS NOT NULL AND LOWER(username) = LOWER(?)", normalized);
 }
 async function getUserById(userId) {
     const db = await (0, client_1.getDb)();

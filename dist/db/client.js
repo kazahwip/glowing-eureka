@@ -48,12 +48,51 @@ async function ensurePaymentRequestColumns(db) {
         await db.exec("ALTER TABLE payment_requests ADD COLUMN worker_user_id INTEGER NULL;");
     }
 }
+async function ensureCuratorColumns(db) {
+    const columns = await db.all("PRAGMA table_info(curators)");
+    const columnNames = new Set(columns.map((column) => column.name));
+    if (!columnNames.has("telegram_username")) {
+        await db.exec("ALTER TABLE curators ADD COLUMN telegram_username TEXT NULL;");
+    }
+    if (!columnNames.has("linked_user_id")) {
+        await db.exec("ALTER TABLE curators ADD COLUMN linked_user_id INTEGER NULL;");
+    }
+    await db.exec("CREATE INDEX IF NOT EXISTS idx_curators_linked_user_id ON curators(linked_user_id);");
+    await db.run(`UPDATE curators
+     SET linked_user_id = (
+       SELECT users.id
+       FROM users
+       WHERE users.username IS NOT NULL AND LOWER(users.username) = LOWER(curators.telegram_username)
+       LIMIT 1
+     )
+     WHERE linked_user_id IS NULL
+       AND telegram_username IS NOT NULL
+       AND telegram_username != ''`);
+}
+async function ensureCuratorRequestTable(db) {
+    await db.exec(`
+    CREATE TABLE IF NOT EXISTS curator_requests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      curator_id INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      reviewed_by_user_id INTEGER NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      reviewed_at TEXT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (curator_id) REFERENCES curators(id) ON DELETE CASCADE,
+      FOREIGN KEY (reviewed_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+    );
+  `);
+}
 async function applySchema(db) {
     const schema = node_fs_1.default.readFileSync(schemaPath, "utf8");
     await db.exec(schema);
     await ensureCardColumns(db);
     await ensureUserColumns(db);
     await ensurePaymentRequestColumns(db);
+    await ensureCuratorColumns(db);
+    await ensureCuratorRequestTable(db);
     await db.run("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", [
         "transfer_details",
         env_1.config.defaultTransferDetails,

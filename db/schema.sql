@@ -23,9 +23,25 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS curators (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
+  telegram_username TEXT,
+  linked_user_id INTEGER NULL,
   description TEXT,
   is_active INTEGER NOT NULL DEFAULT 1,
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (linked_user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS curator_requests (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  curator_id INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  reviewed_by_user_id INTEGER NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  reviewed_at TEXT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (curator_id) REFERENCES curators(id) ON DELETE CASCADE,
+  FOREIGN KEY (reviewed_by_user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS cards (
@@ -150,4 +166,3 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
   ('project_total_profits', '0'),
   ('project_total_profit_amount', '0'),
   ('project_payout_percent', '75');
-

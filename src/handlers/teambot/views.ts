@@ -12,21 +12,20 @@ import {
   adminUserActionsKeyboard,
   adminUsersKeyboard,
 } from "../../keyboards/admin";
-import { teamWorkKeyboard, teambotBackKeyboard, teambotMainMenuInlineKeyboard } from "../../keyboards/teambot";
+import { curatorDirectoryKeyboard, teamWorkKeyboard, teambotBackKeyboard, teambotMainMenuInlineKeyboard } from "../../keyboards/teambot";
 import { countCards, getCardWithOwner, listCardsByOwner, listRecentCardsForAdmin } from "../../services/cards.service";
 import { getWorkerClientsStats } from "../../services/clients.service";
-import { getCuratorById, listCurators } from "../../services/curators.service";
+import { getCuratorById, getCuratorWithUser, listCurators } from "../../services/curators.service";
 import { getWorkerProfitMetrics } from "../../services/kassa.service";
 import { getRecentAdminLogs, getRecentErrorLogs } from "../../services/logging.service";
 import { buildServicebotReferralLink } from "../../services/referrals.service";
 import { getProjectStats, getServicebotUsername, getTransferDetails } from "../../services/settings.service";
 import { getUserById, getUserStatsSummary, listRecentUsers } from "../../services/users.service";
 import type { AppContext } from "../../types/context";
-import type { User } from "../../types/entities";
+import type { Curator, User } from "../../types/entities";
 import { formatDateTime } from "../../utils/date";
 import { sendScreen } from "../../utils/media";
 import {
-  buildCuratorText,
   buildProjectInfoText,
   buildTeamProfileText,
   escapeHtml,
@@ -42,6 +41,26 @@ function getPhotoExtra(markup: { reply_markup: unknown }) {
 
 function getMessageExtra(markup: { reply_markup: unknown }) {
   return markup as never;
+}
+
+function buildCuratorsDirectoryText(currentCurator: Curator | null | undefined, hasCurators: boolean) {
+  const lines = ["<b>🧑‍💼 Система кураторов</b>", ""];
+
+  if (currentCurator) {
+    lines.push(
+      `Ваш куратор: <b>${escapeHtml(currentCurator.name)}</b>${
+        currentCurator.telegram_username ? ` (@${escapeHtml(currentCurator.telegram_username)})` : ""
+      }`,
+      "Ниже можно открыть профиль куратора или отправить новую заявку.",
+    );
+  } else {
+    lines.push("У вас пока нет назначенного куратора.");
+  }
+
+  lines.push("");
+  lines.push(hasCurators ? "Выберите куратора из списка ниже." : "Список кураторов пока пуст.");
+
+  return lines.join("\n");
 }
 
 export async function showTeambotHome(ctx: AppContext) {
@@ -63,11 +82,9 @@ export async function showTeamWorkMenu(ctx: AppContext) {
   await sendScreen(ctx, {
     botKind: "teambot",
     banner: "bot.png",
-    text: [
-      "<b>💼 Бот для работы</b>",
-      "",
-      "Здесь можно создавать карточки, получать личную реферальную ссылку и открывать рабочие настройки.",
-    ].join("\n"),
+    text: ["<b>💼 Бот для работы</b>", "", "Здесь можно создавать карточки, получать реферальную ссылку и открывать рабочие настройки."].join(
+      "\n",
+    ),
     photoExtra: getPhotoExtra(teamWorkKeyboard()),
     messageExtra: getMessageExtra(teamWorkKeyboard()),
   });
@@ -105,9 +122,7 @@ export async function showWorkerReferralScreen(ctx: AppContext) {
       "<b>🔗 Моя рефка</b>",
       "",
       "Ваша персональная ссылка для Honey Bunny:",
-      referralLink
-        ? `<code>${escapeHtml(referralLink)}</code>`
-        : "Ссылка появится после запуска servicebot с публичным username.",
+      referralLink ? `<code>${escapeHtml(referralLink)}</code>` : "Ссылка появится после запуска servicebot с публичным username.",
       "",
       `🐘 Закреплено мамонтов: ${stats.total}`,
       "Переходы, открытие вкладок, выбор моделей и шаги к пополнению будут приходить вам в личные сообщения teambot.",
@@ -149,14 +164,37 @@ export async function showProfileScreen(ctx: AppContext) {
 
 export async function showCuratorsScreen(ctx: AppContext) {
   const user = ctx.state.user;
-  const curator = user?.curator_id ? await getCuratorById(user.curator_id) : null;
+  const [currentCurator, curators] = await Promise.all([
+    user?.curator_id ? getCuratorById(user.curator_id) : Promise.resolve(null),
+    listCurators(),
+  ]);
 
   await sendScreen(ctx, {
     botKind: "teambot",
     banner: "curators.png",
-    text: buildCuratorText(curator),
-    photoExtra: getPhotoExtra(teambotBackKeyboard()),
-    messageExtra: getMessageExtra(teambotBackKeyboard()),
+    text: buildCuratorsDirectoryText(currentCurator, curators.length > 0),
+    photoExtra: getPhotoExtra(curatorDirectoryKeyboard(curators, user?.curator_id ?? null, true)),
+    messageExtra: getMessageExtra(curatorDirectoryKeyboard(curators, user?.curator_id ?? null, true)),
+  });
+}
+
+export async function showCuratorsChatList(ctx: AppContext) {
+  const user = ctx.state.user;
+  const [currentCurator, curators] = await Promise.all([
+    user?.curator_id ? getCuratorById(user.curator_id) : Promise.resolve(null),
+    listCurators(),
+  ]);
+
+  const lines = ["<b>🧑‍💼 Актуальный список кураторов</b>"];
+  if (currentCurator) {
+    lines.push("", `Текущий куратор: <b>${escapeHtml(currentCurator.name)}</b>`);
+  }
+
+  lines.push("", curators.length ? "Откройте профиль куратора или отправьте заявку прямо из списка." : "Список кураторов пока пуст.");
+
+  await ctx.reply(lines.join("\n"), {
+    parse_mode: "HTML",
+    ...curatorDirectoryKeyboard(curators, user?.curator_id ?? null, false),
   });
 }
 
@@ -172,13 +210,10 @@ export async function showProjectInfoScreen(ctx: AppContext) {
 }
 
 export async function showAdminHome(ctx: AppContext) {
-  await ctx.reply(
-    ["<b>🛡 Админ-панель teambot</b>", "", "Выберите нужный раздел управления."].join("\n"),
-    {
-      parse_mode: "HTML",
-      ...adminHomeKeyboard(),
-    },
-  );
+  await ctx.reply(["<b>🛡 Админ-панель teambot</b>", "", "Выберите нужный раздел управления."].join("\n"), {
+    parse_mode: "HTML",
+    ...adminHomeKeyboard(),
+  });
 }
 
 export async function showAdminStats(ctx: AppContext) {
@@ -260,7 +295,7 @@ export async function showAdminUserProfile(ctx: AppContext, userId: number) {
   const curator = user.curator_id ? await getCuratorById(user.curator_id) : null;
   await ctx.reply(buildAdminUserText(user, curator?.name), {
     parse_mode: "HTML",
-    ...adminUserActionsKeyboard(user.id, user.is_blocked === 1, Boolean(user.curator_id)),
+    ...adminUserActionsKeyboard(user.id, user.role, user.is_blocked === 1, Boolean(user.curator_id)),
   });
 }
 
@@ -372,7 +407,7 @@ export async function showAdminCurators(ctx: AppContext) {
 }
 
 export async function showAdminCurator(ctx: AppContext, curatorId: number) {
-  const curator = await getCuratorById(curatorId);
+  const curator = await getCuratorWithUser(curatorId);
   if (!curator) {
     await ctx.reply("Куратор не найден.");
     return;
@@ -384,12 +419,16 @@ export async function showAdminCurator(ctx: AppContext, curatorId: number) {
       "",
       `ID: ${curator.id}`,
       `Имя: ${escapeHtml(curator.name)}`,
+      `Username: ${curator.telegram_username ? `@${escapeHtml(curator.telegram_username)}` : "не указан"}`,
+      `Привязка к teambot: ${
+        curator.linked_user_id && curator.linked_telegram_id ? `<code>${curator.linked_telegram_id}</code>` : "нет"
+      }`,
       `Описание: ${curator.description ? escapeHtml(curator.description) : "не заполнено"}`,
       `Статус: ${curator.is_active ? "✅ Активен" : "⛔ Отключен"}`,
     ].join("\n"),
     {
       parse_mode: "HTML",
-      ...adminCuratorActionsKeyboard(curator.id),
+      ...adminCuratorActionsKeyboard(curator.id, curator.telegram_username),
     },
   );
 }
@@ -397,13 +436,7 @@ export async function showAdminCurator(ctx: AppContext, curatorId: number) {
 export async function showAdminTransfer(ctx: AppContext) {
   const transferDetails = await getTransferDetails();
   await ctx.reply(
-    [
-      "<b>💳 Реквизиты</b>",
-      "",
-      escapeHtml(transferDetails),
-      "",
-      "Чтобы изменить данные, нажмите кнопку ниже.",
-    ].join("\n"),
+    ["<b>💳 Реквизиты</b>", "", escapeHtml(transferDetails), "", "Чтобы изменить данные, нажмите кнопку ниже."].join("\n"),
     {
       parse_mode: "HTML",
       reply_markup: {

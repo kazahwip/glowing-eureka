@@ -1,5 +1,6 @@
 import { Markup } from "telegraf";
 import { BACK_BUTTON, TEAMBOT_MAIN_MENU, TEAM_WORK_MENU } from "../config/constants";
+import type { Curator } from "../types/entities";
 
 export function teambotMainMenuKeyboard() {
   return Markup.keyboard([
@@ -34,3 +35,37 @@ export function teambotBackKeyboard() {
   return Markup.keyboard([[BACK_BUTTON]]).resize();
 }
 
+export function curatorDirectoryKeyboard(curators: Curator[], assignedCuratorId?: number | null, includeBack = false) {
+  const rows = curators.flatMap((curator) => {
+    const row = [];
+
+    if (curator.telegram_username) {
+      row.push(Markup.button.url(`👤 ${curator.name}`, `https://t.me/${curator.telegram_username}`));
+    } else {
+      row.push(Markup.button.callback(`👤 ${curator.name}`, "team:curator:noop"));
+    }
+
+    if (assignedCuratorId === curator.id) {
+      row.push(Markup.button.callback("✅ Назначен", "team:curator:assigned"));
+    } else {
+      row.push(Markup.button.callback("📨 Запрос", `team:curator:request:${curator.id}`));
+    }
+
+    return [row];
+  });
+
+  if (includeBack) {
+    rows.push([Markup.button.callback("⬅️ Назад", "team:curators:back")]);
+  }
+
+  return Markup.inlineKeyboard(rows);
+}
+
+export function curatorRequestDecisionKeyboard(requestId: number) {
+  return Markup.inlineKeyboard([
+    [
+      Markup.button.callback("✅ Принять", `team:curator-request:${requestId}:accept`),
+      Markup.button.callback("❌ Отклонить", `team:curator-request:${requestId}:reject`),
+    ],
+  ]);
+}

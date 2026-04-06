@@ -27,6 +27,7 @@ export interface SearchDraft {
 
 export interface CuratorDraft {
   name?: string;
+  telegramUsername?: string;
   description?: string;
   userTelegramId?: number;
   curatorId?: number;

@@ -36,10 +36,13 @@ function adminUsersKeyboard() {
         [telegraf_1.Markup.button.callback("⬅️ Назад", "admin:home")],
     ]);
 }
-function adminUserActionsKeyboard(userId, isBlocked, hasCurator) {
+function adminUserActionsKeyboard(userId, role, isBlocked, hasCurator) {
     return telegraf_1.Markup.inlineKeyboard([
         [telegraf_1.Markup.button.callback("🪪 Сменить роль", `admin:user:${userId}:role`)],
         [telegraf_1.Markup.button.callback(isBlocked ? "✅ Разблокировать" : "⛔ Заблокировать", `admin:user:${userId}:block`)],
+        [
+            telegraf_1.Markup.button.callback(role === "curator" ? "💼 Сделать воркером" : "🧑‍💼 Сделать куратором", `admin:user:${userId}:${role === "curator" ? "make-worker" : "make-curator"}`),
+        ],
         [
             telegraf_1.Markup.button.callback(hasCurator ? "➖ Снять куратора" : "➕ Назначить куратора", `admin:user:${userId}:${hasCurator ? "remove-curator" : "assign-curator"}`),
         ],
@@ -89,16 +92,19 @@ function adminCardDeleteConfirmKeyboard(cardId, ownerUserId) {
 }
 function adminCuratorsKeyboard(curators) {
     const rows = curators.map((curator) => [
-        telegraf_1.Markup.button.callback(`🧑‍💼 ${curator.id}. ${curator.name}`, `admin:curator:view:${curator.id}`),
+        telegraf_1.Markup.button.callback(`🧑‍💼 ${curator.id}. ${curator.name}${curator.telegram_username ? ` (@${curator.telegram_username})` : ""}`, `admin:curator:view:${curator.id}`),
     ]);
     rows.push([telegraf_1.Markup.button.callback("➕ Добавить куратора", "admin:curator:add")], [telegraf_1.Markup.button.callback("🔗 Назначить пользователю", "admin:curator:assign")], [telegraf_1.Markup.button.callback("➖ Снять назначение", "admin:curator:unassign")], [telegraf_1.Markup.button.callback("⬅️ Назад", "admin:home")]);
     return telegraf_1.Markup.inlineKeyboard(rows);
 }
-function adminCuratorActionsKeyboard(curatorId) {
-    return telegraf_1.Markup.inlineKeyboard([
-        [telegraf_1.Markup.button.callback("🗑 Удалить куратора", `admin:curator:delete:${curatorId}`)],
-        [telegraf_1.Markup.button.callback("⬅️ Назад", "admin:curators")],
-    ]);
+function adminCuratorActionsKeyboard(curatorId, telegramUsername) {
+    const rows = [];
+    if (telegramUsername) {
+        rows.push([telegraf_1.Markup.button.url("👤 Открыть профиль", `https://t.me/${telegramUsername}`)]);
+    }
+    rows.push([telegraf_1.Markup.button.callback("🗑 Удалить куратора", `admin:curator:delete:${curatorId}`)]);
+    rows.push([telegraf_1.Markup.button.callback("⬅️ Назад", "admin:curators")]);
+    return telegraf_1.Markup.inlineKeyboard(rows);
 }
 function adminProjectStatsKeyboard() {
     return telegraf_1.Markup.inlineKeyboard([

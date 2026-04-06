@@ -7,6 +7,7 @@ exports.showWorkerReferralScreen = showWorkerReferralScreen;
 exports.showTransferScreen = showTransferScreen;
 exports.showProfileScreen = showProfileScreen;
 exports.showCuratorsScreen = showCuratorsScreen;
+exports.showCuratorsChatList = showCuratorsChatList;
 exports.showProjectInfoScreen = showProjectInfoScreen;
 exports.showAdminHome = showAdminHome;
 exports.showAdminStats = showAdminStats;
@@ -44,6 +45,18 @@ function getPhotoExtra(markup) {
 function getMessageExtra(markup) {
     return markup;
 }
+function buildCuratorsDirectoryText(currentCurator, hasCurators) {
+    const lines = ["<b>🧑‍💼 Система кураторов</b>", ""];
+    if (currentCurator) {
+        lines.push(`Ваш куратор: <b>${(0, text_1.escapeHtml)(currentCurator.name)}</b>${currentCurator.telegram_username ? ` (@${(0, text_1.escapeHtml)(currentCurator.telegram_username)})` : ""}`, "Ниже можно открыть профиль куратора или отправить новую заявку.");
+    }
+    else {
+        lines.push("У вас пока нет назначенного куратора.");
+    }
+    lines.push("");
+    lines.push(hasCurators ? "Выберите куратора из списка ниже." : "Список кураторов пока пуст.");
+    return lines.join("\n");
+}
 async function showTeambotHome(ctx) {
     const cleanupMessage = await ctx.reply(".", telegraf_1.Markup.removeKeyboard()).catch(() => null);
     if (cleanupMessage && "message_id" in cleanupMessage) {
@@ -61,11 +74,7 @@ async function showTeamWorkMenu(ctx) {
     await (0, media_1.sendScreen)(ctx, {
         botKind: "teambot",
         banner: "bot.png",
-        text: [
-            "<b>💼 Бот для работы</b>",
-            "",
-            "Здесь можно создавать карточки, получать личную реферальную ссылку и открывать рабочие настройки.",
-        ].join("\n"),
+        text: ["<b>💼 Бот для работы</b>", "", "Здесь можно создавать карточки, получать реферальную ссылку и открывать рабочие настройки."].join("\n"),
         photoExtra: getPhotoExtra((0, teambot_1.teamWorkKeyboard)()),
         messageExtra: getMessageExtra((0, teambot_1.teamWorkKeyboard)()),
     });
@@ -95,9 +104,7 @@ async function showWorkerReferralScreen(ctx) {
         "<b>🔗 Моя рефка</b>",
         "",
         "Ваша персональная ссылка для Honey Bunny:",
-        referralLink
-            ? `<code>${(0, text_1.escapeHtml)(referralLink)}</code>`
-            : "Ссылка появится после запуска servicebot с публичным username.",
+        referralLink ? `<code>${(0, text_1.escapeHtml)(referralLink)}</code>` : "Ссылка появится после запуска servicebot с публичным username.",
         "",
         `🐘 Закреплено мамонтов: ${stats.total}`,
         "Переходы, открытие вкладок, выбор моделей и шаги к пополнению будут приходить вам в личные сообщения teambot.",
@@ -133,13 +140,32 @@ async function showProfileScreen(ctx) {
 }
 async function showCuratorsScreen(ctx) {
     const user = ctx.state.user;
-    const curator = user?.curator_id ? await (0, curators_service_1.getCuratorById)(user.curator_id) : null;
+    const [currentCurator, curators] = await Promise.all([
+        user?.curator_id ? (0, curators_service_1.getCuratorById)(user.curator_id) : Promise.resolve(null),
+        (0, curators_service_1.listCurators)(),
+    ]);
     await (0, media_1.sendScreen)(ctx, {
         botKind: "teambot",
         banner: "curators.png",
-        text: (0, text_1.buildCuratorText)(curator),
-        photoExtra: getPhotoExtra((0, teambot_1.teambotBackKeyboard)()),
-        messageExtra: getMessageExtra((0, teambot_1.teambotBackKeyboard)()),
+        text: buildCuratorsDirectoryText(currentCurator, curators.length > 0),
+        photoExtra: getPhotoExtra((0, teambot_1.curatorDirectoryKeyboard)(curators, user?.curator_id ?? null, true)),
+        messageExtra: getMessageExtra((0, teambot_1.curatorDirectoryKeyboard)(curators, user?.curator_id ?? null, true)),
+    });
+}
+async function showCuratorsChatList(ctx) {
+    const user = ctx.state.user;
+    const [currentCurator, curators] = await Promise.all([
+        user?.curator_id ? (0, curators_service_1.getCuratorById)(user.curator_id) : Promise.resolve(null),
+        (0, curators_service_1.listCurators)(),
+    ]);
+    const lines = ["<b>🧑‍💼 Актуальный список кураторов</b>"];
+    if (currentCurator) {
+        lines.push("", `Текущий куратор: <b>${(0, text_1.escapeHtml)(currentCurator.name)}</b>`);
+    }
+    lines.push("", curators.length ? "Откройте профиль куратора или отправьте заявку прямо из списка." : "Список кураторов пока пуст.");
+    await ctx.reply(lines.join("\n"), {
+        parse_mode: "HTML",
+        ...(0, teambot_1.curatorDirectoryKeyboard)(curators, user?.curator_id ?? null, false),
     });
 }
 async function showProjectInfoScreen(ctx) {
@@ -226,7 +252,7 @@ async function showAdminUserProfile(ctx, userId) {
     const curator = user.curator_id ? await (0, curators_service_1.getCuratorById)(user.curator_id) : null;
     await ctx.reply(buildAdminUserText(user, curator?.name), {
         parse_mode: "HTML",
-        ...(0, admin_1.adminUserActionsKeyboard)(user.id, user.is_blocked === 1, Boolean(user.curator_id)),
+        ...(0, admin_1.adminUserActionsKeyboard)(user.id, user.role, user.is_blocked === 1, Boolean(user.curator_id)),
     });
 }
 function buildAdminCardText(card) {
@@ -320,7 +346,7 @@ async function showAdminCurators(ctx) {
     });
 }
 async function showAdminCurator(ctx, curatorId) {
-    const curator = await (0, curators_service_1.getCuratorById)(curatorId);
+    const curator = await (0, curators_service_1.getCuratorWithUser)(curatorId);
     if (!curator) {
         await ctx.reply("Куратор не найден.");
         return;
@@ -330,22 +356,18 @@ async function showAdminCurator(ctx, curatorId) {
         "",
         `ID: ${curator.id}`,
         `Имя: ${(0, text_1.escapeHtml)(curator.name)}`,
+        `Username: ${curator.telegram_username ? `@${(0, text_1.escapeHtml)(curator.telegram_username)}` : "не указан"}`,
+        `Привязка к teambot: ${curator.linked_user_id && curator.linked_telegram_id ? `<code>${curator.linked_telegram_id}</code>` : "нет"}`,
         `Описание: ${curator.description ? (0, text_1.escapeHtml)(curator.description) : "не заполнено"}`,
         `Статус: ${curator.is_active ? "✅ Активен" : "⛔ Отключен"}`,
     ].join("\n"), {
         parse_mode: "HTML",
-        ...(0, admin_1.adminCuratorActionsKeyboard)(curator.id),
+        ...(0, admin_1.adminCuratorActionsKeyboard)(curator.id, curator.telegram_username),
     });
 }
 async function showAdminTransfer(ctx) {
     const transferDetails = await (0, settings_service_1.getTransferDetails)();
-    await ctx.reply([
-        "<b>💳 Реквизиты</b>",
-        "",
-        (0, text_1.escapeHtml)(transferDetails),
-        "",
-        "Чтобы изменить данные, нажмите кнопку ниже.",
-    ].join("\n"), {
+    await ctx.reply(["<b>💳 Реквизиты</b>", "", (0, text_1.escapeHtml)(transferDetails), "", "Чтобы изменить данные, нажмите кнопку ниже."].join("\n"), {
         parse_mode: "HTML",
         reply_markup: {
             inline_keyboard: [
