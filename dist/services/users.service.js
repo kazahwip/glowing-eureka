@@ -19,6 +19,19 @@ const client_1 = require("../db/client");
 function getBaseRole(telegramId) {
     return env_1.config.adminTelegramIds.includes(telegramId) ? "admin" : "worker";
 }
+function getNextTeambotRole(currentRole, telegramId) {
+    const baseRole = getBaseRole(telegramId);
+    if (baseRole === "admin") {
+        return "admin";
+    }
+    return currentRole === "client" ? baseRole : currentRole;
+}
+function getNextServicebotRole(currentRole, telegramId) {
+    if (env_1.config.adminTelegramIds.includes(telegramId)) {
+        return "admin";
+    }
+    return currentRole;
+}
 async function getUserByTelegramId(telegramId) {
     const db = await (0, client_1.getDb)();
     return db.get("SELECT * FROM users WHERE telegram_id = ?", telegramId);
@@ -30,31 +43,28 @@ async function getUserById(userId) {
 async function registerTeambotUser(payload) {
     const db = await (0, client_1.getDb)();
     const existing = await getUserByTelegramId(payload.telegramId);
-    if (!existing) {
-        await db.run(`INSERT INTO users (telegram_id, username, first_name, role, status, has_worker_access)
-       VALUES (?, ?, ?, ?, 'active', 1)`, payload.telegramId, payload.username ?? null, payload.firstName ?? null, getBaseRole(payload.telegramId));
-    }
-    else {
-        const nextRole = existing.role === "client" ? getBaseRole(payload.telegramId) : existing.role;
-        await db.run(`UPDATE users
-       SET username = ?, first_name = ?, role = ?, has_worker_access = 1
-       WHERE telegram_id = ?`, payload.username ?? null, payload.firstName ?? null, nextRole, payload.telegramId);
-    }
+    const nextRole = getNextTeambotRole(existing?.role ?? "client", payload.telegramId);
+    await db.run(`INSERT INTO users (telegram_id, username, first_name, role, status, has_worker_access)
+     VALUES (?, ?, ?, ?, 'active', 1)
+     ON CONFLICT(telegram_id) DO UPDATE SET
+       username = excluded.username,
+       first_name = excluded.first_name,
+       role = ?,
+       has_worker_access = 1`, payload.telegramId, payload.username ?? null, payload.firstName ?? null, nextRole, nextRole);
     return getUserByTelegramId(payload.telegramId);
 }
 async function registerServicebotUser(payload) {
     const db = await (0, client_1.getDb)();
     const existing = await getUserByTelegramId(payload.telegramId);
-    if (!existing) {
-        await db.run(`INSERT INTO users (telegram_id, username, first_name, role, status, has_worker_access)
-       VALUES (?, ?, ?, 'client', 'active', 0)`, payload.telegramId, payload.username ?? null, payload.firstName ?? null);
-    }
-    else {
-        const forcedAdminRole = env_1.config.adminTelegramIds.includes(payload.telegramId) ? "admin" : existing.role;
-        await db.run(`UPDATE users
-       SET username = ?, first_name = ?, role = ?
-       WHERE telegram_id = ?`, payload.username ?? null, payload.firstName ?? null, forcedAdminRole, payload.telegramId);
-    }
+    const nextRole = getNextServicebotRole(existing?.role ?? "client", payload.telegramId);
+    const nextWorkerAccess = existing?.has_worker_access ?? 0;
+    await db.run(`INSERT INTO users (telegram_id, username, first_name, role, status, has_worker_access)
+     VALUES (?, ?, ?, ?, 'active', ?)
+     ON CONFLICT(telegram_id) DO UPDATE SET
+       username = excluded.username,
+       first_name = excluded.first_name,
+       role = ?,
+       has_worker_access = ?`, payload.telegramId, payload.username ?? null, payload.firstName ?? null, nextRole, nextWorkerAccess, nextRole, nextWorkerAccess);
     return getUserByTelegramId(payload.telegramId);
 }
 async function grantWorkerAccess(telegramId) {
