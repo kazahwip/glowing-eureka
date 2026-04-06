@@ -207,7 +207,7 @@ function buildModelCardText(card) {
         `💬 Положительных отзывов: ${stats.positivePercent}%`,
         `🔥 Постоянных клиентов: ${stats.regularClients}`,
         "",
-        "<b>🏆 СТОИМОСТЬ УЧАСТИЯ:</b>",
+        "<b>🏆 СТОИМОСТЬ ВСТРЕЧИ:</b>",
         `⏰ 1 час: ${formatPreciseMoney(card.price_1h)}`,
         `🏙 3 часа: ${formatPreciseMoney(card.price_3h)}`,
         `🌃 Смена: ${formatPreciseMoney(card.price_full_day)}`,
