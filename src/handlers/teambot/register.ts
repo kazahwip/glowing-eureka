@@ -3,7 +3,7 @@ import { adminRoleKeyboard } from "../../keyboards/admin";
 import { BACK_BUTTON, TEAMBOT_MAIN_MENU, TEAM_WORK_MENU } from "../../config/constants";
 import { getServicebotTelegram, getTeambotTelegram } from "../../services/bot-clients.service";
 import { notifyWorkerAboutCardReviewDecision } from "../../services/card-review.service";
-import { approveCard, rejectCard } from "../../services/cards.service";
+import { approveCard, deleteCard, rejectCard } from "../../services/cards.service";
 import { deleteCurator, unassignCuratorFromUser } from "../../services/curators.service";
 import { getKassaSummary, getTopWorkers } from "../../services/kassa.service";
 import { logAdminAction } from "../../services/logging.service";
@@ -15,9 +15,13 @@ import { formatDateTime } from "../../utils/date";
 import { escapeHtml, formatMoney, formatUserLabel } from "../../utils/text";
 import {
   showAdminActionLogs,
+  showAdminCardDeleteConfirm,
+  showAdminCardProfile,
+  showAdminCardsMenu,
   showAdminCurator,
   showAdminCurators,
   showAdminErrorLogs,
+  showAdminOwnerCards,
   showAdminHome,
   showAdminLogsMenu,
   showAdminProjectStats,
@@ -260,6 +264,14 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
     await showAdminUsersMenu(ctx);
   });
 
+  bot.action("admin:cards", async (ctx) => {
+    await answerCallback(ctx);
+    if (!isAdmin(ctx)) {
+      return;
+    }
+    await showAdminCardsMenu(ctx);
+  });
+
   bot.action("admin:users:list", async (ctx) => {
     await answerCallback(ctx);
     if (!isAdmin(ctx)) {
@@ -283,6 +295,52 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
     }
 
     await showAdminUserProfile(ctx, Number(ctx.match[1]));
+  });
+
+  bot.action(/^admin:cards:owner:(\d+)$/, async (ctx) => {
+    await answerCallback(ctx);
+    if (!isAdmin(ctx)) {
+      return;
+    }
+
+    await showAdminOwnerCards(ctx, Number(ctx.match[1]));
+  });
+
+  bot.action(/^admin:card:(\d+):view$/, async (ctx) => {
+    await answerCallback(ctx);
+    if (!isAdmin(ctx)) {
+      return;
+    }
+
+    await showAdminCardProfile(ctx, Number(ctx.match[1]));
+  });
+
+  bot.action(/^admin:card:(\d+):delete:confirm$/, async (ctx) => {
+    await answerCallback(ctx);
+    if (!isAdmin(ctx)) {
+      return;
+    }
+
+    await showAdminCardDeleteConfirm(ctx, Number(ctx.match[1]));
+  });
+
+  bot.action(/^admin:card:(\d+):delete:apply$/, async (ctx) => {
+    await answerCallback(ctx);
+    if (!isAdmin(ctx) || !ctx.state.user) {
+      return;
+    }
+
+    const cardId = Number(ctx.match[1]);
+    const card = await deleteCard(cardId);
+    if (!card) {
+      await ctx.reply("Анкета не найдена или уже была удалена.");
+      return;
+    }
+
+    await logAdminAction(ctx.state.user.id, "delete_card", `card:${cardId}; owner:${card.owner_user_id}; name:${card.name}`);
+    await ctx.reply(`Анкета #${cardId} удалена. Карточка больше не будет видна в Honey Bunny.`);
+    await ctx.editMessageReplyMarkup({ inline_keyboard: [] }).catch(() => undefined);
+    await showAdminOwnerCards(ctx, card.owner_user_id);
   });
 
   bot.action(/^admin:user:(\d+):role$/, async (ctx) => {

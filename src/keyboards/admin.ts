@@ -1,10 +1,11 @@
 import { Markup } from "telegraf";
-import type { Curator, UserRole } from "../types/entities";
+import type { Card, Curator, UserRole } from "../types/entities";
 
 export function adminHomeKeyboard() {
   return Markup.inlineKeyboard([
     [Markup.button.callback("📊 Общая статистика", "admin:stats")],
     [Markup.button.callback("👥 Пользователи", "admin:users")],
+    [Markup.button.callback("📋 Анкеты", "admin:cards")],
     [Markup.button.callback("🧑‍💼 Кураторы", "admin:curators")],
     [Markup.button.callback("💳 Реквизиты", "admin:transfer")],
     [Markup.button.callback("📈 Статистика проекта", "admin:project-stats")],
@@ -32,6 +33,7 @@ export function adminUserActionsKeyboard(userId: number, isBlocked: boolean, has
         `admin:user:${userId}:${hasCurator ? "remove-curator" : "assign-curator"}`,
       ),
     ],
+    [Markup.button.callback("📋 Анкеты пользователя", `admin:cards:owner:${userId}`)],
     [Markup.button.callback("⬅️ Назад", "admin:users")],
   ]);
 }
@@ -47,6 +49,42 @@ export function adminRoleKeyboard(userId: number) {
   return Markup.inlineKeyboard([
     roles.map((role) => Markup.button.callback(role.label, `admin:user:${userId}:set-role:${role.value}`)),
     [Markup.button.callback("⬅️ Назад", `admin:user:${userId}:view`)],
+  ]);
+}
+
+export function adminCardsKeyboard(cards: Card[]) {
+  const rows = cards.map((card) => [
+    Markup.button.callback(`📋 #${card.id} ${card.name}, ${card.age} • ${card.city}`, `admin:card:${card.id}:view`),
+  ]);
+
+  rows.push([Markup.button.callback("⬅️ Назад", "admin:home")]);
+
+  return Markup.inlineKeyboard(rows);
+}
+
+export function adminOwnerCardsKeyboard(cards: Card[], ownerUserId: number) {
+  const rows = cards.map((card) => [
+    Markup.button.callback(`📋 #${card.id} ${card.name}, ${card.age} • ${card.city}`, `admin:card:${card.id}:view`),
+  ]);
+
+  rows.push([Markup.button.callback("⬅️ К профилю", `admin:user:${ownerUserId}:view`)]);
+
+  return Markup.inlineKeyboard(rows);
+}
+
+export function adminCardActionsKeyboard(cardId: number, ownerUserId: number) {
+  return Markup.inlineKeyboard([
+    [Markup.button.callback("🗑 Удалить анкету", `admin:card:${cardId}:delete:confirm`)],
+    [Markup.button.callback("👤 Владелец", `admin:user:${ownerUserId}:view`)],
+    [Markup.button.callback("⬅️ К списку анкет", "admin:cards")],
+  ]);
+}
+
+export function adminCardDeleteConfirmKeyboard(cardId: number, ownerUserId: number) {
+  return Markup.inlineKeyboard([
+    [Markup.button.callback("⚠️ Да, удалить", `admin:card:${cardId}:delete:apply`)],
+    [Markup.button.callback("⬅️ Назад к анкете", `admin:card:${cardId}:view`)],
+    [Markup.button.callback("👤 К владельцу", `admin:user:${ownerUserId}:view`)],
   ]);
 }
 
@@ -114,4 +152,3 @@ export function adminCardReviewKeyboard(cardId: number) {
     ],
   ]);
 }
-

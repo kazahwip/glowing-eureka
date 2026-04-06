@@ -207,6 +207,13 @@ function registerTeambotHandlers(bot) {
         }
         await (0, views_1.showAdminUsersMenu)(ctx);
     });
+    bot.action("admin:cards", async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx)) {
+            return;
+        }
+        await (0, views_1.showAdminCardsMenu)(ctx);
+    });
     bot.action("admin:users:list", async (ctx) => {
         await answerCallback(ctx);
         if (!isAdmin(ctx)) {
@@ -227,6 +234,43 @@ function registerTeambotHandlers(bot) {
             return;
         }
         await (0, views_1.showAdminUserProfile)(ctx, Number(ctx.match[1]));
+    });
+    bot.action(/^admin:cards:owner:(\d+)$/, async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx)) {
+            return;
+        }
+        await (0, views_1.showAdminOwnerCards)(ctx, Number(ctx.match[1]));
+    });
+    bot.action(/^admin:card:(\d+):view$/, async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx)) {
+            return;
+        }
+        await (0, views_1.showAdminCardProfile)(ctx, Number(ctx.match[1]));
+    });
+    bot.action(/^admin:card:(\d+):delete:confirm$/, async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx)) {
+            return;
+        }
+        await (0, views_1.showAdminCardDeleteConfirm)(ctx, Number(ctx.match[1]));
+    });
+    bot.action(/^admin:card:(\d+):delete:apply$/, async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx) || !ctx.state.user) {
+            return;
+        }
+        const cardId = Number(ctx.match[1]);
+        const card = await (0, cards_service_1.deleteCard)(cardId);
+        if (!card) {
+            await ctx.reply("Анкета не найдена или уже была удалена.");
+            return;
+        }
+        await (0, logging_service_1.logAdminAction)(ctx.state.user.id, "delete_card", `card:${cardId}; owner:${card.owner_user_id}; name:${card.name}`);
+        await ctx.reply(`Анкета #${cardId} удалена. Карточка больше не будет видна в Honey Bunny.`);
+        await ctx.editMessageReplyMarkup({ inline_keyboard: [] }).catch(() => undefined);
+        await (0, views_1.showAdminOwnerCards)(ctx, card.owner_user_id);
     });
     bot.action(/^admin:user:(\d+):role$/, async (ctx) => {
         await answerCallback(ctx);

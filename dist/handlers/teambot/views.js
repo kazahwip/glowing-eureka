@@ -13,6 +13,10 @@ exports.showAdminStats = showAdminStats;
 exports.showAdminUsersMenu = showAdminUsersMenu;
 exports.showRecentUsers = showRecentUsers;
 exports.showAdminUserProfile = showAdminUserProfile;
+exports.showAdminCardsMenu = showAdminCardsMenu;
+exports.showAdminOwnerCards = showAdminOwnerCards;
+exports.showAdminCardProfile = showAdminCardProfile;
+exports.showAdminCardDeleteConfirm = showAdminCardDeleteConfirm;
 exports.showAdminCurators = showAdminCurators;
 exports.showAdminCurator = showAdminCurator;
 exports.showAdminTransfer = showAdminTransfer;
@@ -60,7 +64,7 @@ async function showTeamWorkMenu(ctx) {
         text: [
             "<b>💼 Бот для работы</b>",
             "",
-            "В этом разделе можно создавать карточки, получать личную реферальную ссылку и открывать рабочие настройки.",
+            "Здесь можно создавать карточки, получать личную реферальную ссылку и открывать рабочие настройки.",
         ].join("\n"),
         photoExtra: getPhotoExtra((0, teambot_1.teamWorkKeyboard)()),
         messageExtra: getMessageExtra((0, teambot_1.teamWorkKeyboard)()),
@@ -72,7 +76,7 @@ async function showTeamWorkSettings(ctx) {
         "",
         "Здесь собраны быстрые подсказки по рабочему разделу.",
         "🔗 Моя рефка вынесена в отдельную кнопку, чтобы ссылку можно было быстро копировать и отправлять клиентам.",
-        "Все переходы по реферальной ссылке и ключевые действия в Honey Bunny закрепляются за вами и приходят в личные сообщения teambot.",
+        "Ключевые действия клиентов в Honey Bunny, пришедших по вашей ссылке, будут приходить вам в личные сообщения teambot.",
     ].join("\n"), {
         parse_mode: "HTML",
         ...(0, teambot_1.teambotBackKeyboard)(),
@@ -223,6 +227,86 @@ async function showAdminUserProfile(ctx, userId) {
     await ctx.reply(buildAdminUserText(user, curator?.name), {
         parse_mode: "HTML",
         ...(0, admin_1.adminUserActionsKeyboard)(user.id, user.is_blocked === 1, Boolean(user.curator_id)),
+    });
+}
+function buildAdminCardText(card) {
+    return [
+        "<b>📋 Карточка анкеты</b>",
+        "",
+        `ID: #${card.id}`,
+        `Имя: ${(0, text_1.escapeHtml)(card.name)}`,
+        `Возраст: ${card.age}`,
+        `Категория: ${(0, text_1.escapeHtml)((0, text_1.getCardCategoryTitle)(card.category))}`,
+        `Город: ${(0, text_1.escapeHtml)(card.city)}`,
+        `Статус: ${card.is_active ? "✅ Активна" : "⛔ Неактивна"}`,
+        `Модерация: ${(0, text_1.escapeHtml)(card.review_status)}`,
+        `Источник: ${(0, text_1.escapeHtml)(card.source)}`,
+        `Владелец: ${(0, text_1.escapeHtml)((0, text_1.formatUserLabel)({
+            telegram_id: card.owner_telegram_id,
+            username: card.owner_username,
+            first_name: card.owner_first_name,
+        }))}`,
+        `Telegram ID владельца: <code>${card.owner_telegram_id}</code>`,
+        `Фото: ${card.photos.length}`,
+        `Создана: ${(0, date_1.formatDateTime)(card.created_at)}`,
+        "",
+        `1 час: ${(0, text_1.formatMoney)(card.price_1h)}`,
+        `3 часа: ${(0, text_1.formatMoney)(card.price_3h)}`,
+        `Весь день: ${(0, text_1.formatMoney)(card.price_full_day)}`,
+        ...(card.description ? ["", `Описание: ${(0, text_1.escapeHtml)(card.description)}`] : []),
+    ].join("\n");
+}
+async function showAdminCardsMenu(ctx) {
+    const cards = await (0, cards_service_1.listRecentCardsForAdmin)(15);
+    const text = cards.length
+        ? "<b>📋 Анкеты</b>\n\nПоследние карточки в базе. Откройте нужную анкету для просмотра и удаления."
+        : "<b>📋 Анкеты</b>\n\nВ базе пока нет карточек.";
+    await ctx.reply(text, {
+        parse_mode: "HTML",
+        ...(0, admin_1.adminCardsKeyboard)(cards),
+    });
+}
+async function showAdminOwnerCards(ctx, ownerUserId) {
+    const user = await (0, users_service_1.getUserById)(ownerUserId);
+    if (!user) {
+        await ctx.reply("Пользователь не найден.");
+        return;
+    }
+    const cards = await (0, cards_service_1.listCardsByOwner)(ownerUserId);
+    const title = (0, text_1.escapeHtml)((0, text_1.formatUserLabel)(user));
+    const text = cards.length
+        ? `<b>📋 Анкеты пользователя</b>\n\nВладелец: ${title}\nНайдено анкет: ${cards.length}`
+        : `<b>📋 Анкеты пользователя</b>\n\nУ ${title} пока нет анкет.`;
+    await ctx.reply(text, {
+        parse_mode: "HTML",
+        ...(0, admin_1.adminOwnerCardsKeyboard)(cards, ownerUserId),
+    });
+}
+async function showAdminCardProfile(ctx, cardId) {
+    const card = await (0, cards_service_1.getCardWithOwner)(cardId);
+    if (!card) {
+        await ctx.reply("Анкета не найдена.");
+        return;
+    }
+    await ctx.reply(buildAdminCardText(card), {
+        parse_mode: "HTML",
+        ...(0, admin_1.adminCardActionsKeyboard)(card.id, card.owner_user_id),
+    });
+}
+async function showAdminCardDeleteConfirm(ctx, cardId) {
+    const card = await (0, cards_service_1.getCardWithOwner)(cardId);
+    if (!card) {
+        await ctx.reply("Анкета не найдена.");
+        return;
+    }
+    await ctx.reply([
+        "<b>⚠️ Подтвердите удаление анкеты</b>",
+        "",
+        `Вы собираетесь удалить анкету <b>${(0, text_1.escapeHtml)(card.name)}</b> (#${card.id}).`,
+        "Карточка исчезнет из Honey Bunny, а связанные фото, избранное и бронирования будут удалены каскадно.",
+    ].join("\n"), {
+        parse_mode: "HTML",
+        ...(0, admin_1.adminCardDeleteConfirmKeyboard)(card.id, card.owner_user_id),
     });
 }
 async function showAdminCurators(ctx) {

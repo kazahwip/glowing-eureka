@@ -190,9 +190,24 @@ export async function listCardsByOwner(ownerUserId: number) {
   return db.all<Card[]>("SELECT * FROM cards WHERE owner_user_id = ? ORDER BY created_at DESC", ownerUserId);
 }
 
+export async function listRecentCardsForAdmin(limit = 15) {
+  const db = await getDb();
+  return db.all<Card[]>("SELECT * FROM cards ORDER BY created_at DESC LIMIT ?", limit);
+}
+
+export async function deleteCard(cardId: number) {
+  const db = await getDb();
+  const card = await getCardWithOwner(cardId);
+  if (!card) {
+    return null;
+  }
+
+  await db.run("DELETE FROM cards WHERE id = ?", cardId);
+  return card;
+}
+
 export async function countCards() {
   const db = await getDb();
   const row = await db.get<{ total: number }>("SELECT COUNT(*) AS total FROM cards");
   return row?.total ?? 0;
 }
-

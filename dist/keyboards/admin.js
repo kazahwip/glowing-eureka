@@ -4,6 +4,10 @@ exports.adminHomeKeyboard = adminHomeKeyboard;
 exports.adminUsersKeyboard = adminUsersKeyboard;
 exports.adminUserActionsKeyboard = adminUserActionsKeyboard;
 exports.adminRoleKeyboard = adminRoleKeyboard;
+exports.adminCardsKeyboard = adminCardsKeyboard;
+exports.adminOwnerCardsKeyboard = adminOwnerCardsKeyboard;
+exports.adminCardActionsKeyboard = adminCardActionsKeyboard;
+exports.adminCardDeleteConfirmKeyboard = adminCardDeleteConfirmKeyboard;
 exports.adminCuratorsKeyboard = adminCuratorsKeyboard;
 exports.adminCuratorActionsKeyboard = adminCuratorActionsKeyboard;
 exports.adminProjectStatsKeyboard = adminProjectStatsKeyboard;
@@ -16,6 +20,7 @@ function adminHomeKeyboard() {
     return telegraf_1.Markup.inlineKeyboard([
         [telegraf_1.Markup.button.callback("📊 Общая статистика", "admin:stats")],
         [telegraf_1.Markup.button.callback("👥 Пользователи", "admin:users")],
+        [telegraf_1.Markup.button.callback("📋 Анкеты", "admin:cards")],
         [telegraf_1.Markup.button.callback("🧑‍💼 Кураторы", "admin:curators")],
         [telegraf_1.Markup.button.callback("💳 Реквизиты", "admin:transfer")],
         [telegraf_1.Markup.button.callback("📈 Статистика проекта", "admin:project-stats")],
@@ -38,6 +43,7 @@ function adminUserActionsKeyboard(userId, isBlocked, hasCurator) {
         [
             telegraf_1.Markup.button.callback(hasCurator ? "➖ Снять куратора" : "➕ Назначить куратора", `admin:user:${userId}:${hasCurator ? "remove-curator" : "assign-curator"}`),
         ],
+        [telegraf_1.Markup.button.callback("📋 Анкеты пользователя", `admin:cards:owner:${userId}`)],
         [telegraf_1.Markup.button.callback("⬅️ Назад", "admin:users")],
     ]);
 }
@@ -51,6 +57,34 @@ function adminRoleKeyboard(userId) {
     return telegraf_1.Markup.inlineKeyboard([
         roles.map((role) => telegraf_1.Markup.button.callback(role.label, `admin:user:${userId}:set-role:${role.value}`)),
         [telegraf_1.Markup.button.callback("⬅️ Назад", `admin:user:${userId}:view`)],
+    ]);
+}
+function adminCardsKeyboard(cards) {
+    const rows = cards.map((card) => [
+        telegraf_1.Markup.button.callback(`📋 #${card.id} ${card.name}, ${card.age} • ${card.city}`, `admin:card:${card.id}:view`),
+    ]);
+    rows.push([telegraf_1.Markup.button.callback("⬅️ Назад", "admin:home")]);
+    return telegraf_1.Markup.inlineKeyboard(rows);
+}
+function adminOwnerCardsKeyboard(cards, ownerUserId) {
+    const rows = cards.map((card) => [
+        telegraf_1.Markup.button.callback(`📋 #${card.id} ${card.name}, ${card.age} • ${card.city}`, `admin:card:${card.id}:view`),
+    ]);
+    rows.push([telegraf_1.Markup.button.callback("⬅️ К профилю", `admin:user:${ownerUserId}:view`)]);
+    return telegraf_1.Markup.inlineKeyboard(rows);
+}
+function adminCardActionsKeyboard(cardId, ownerUserId) {
+    return telegraf_1.Markup.inlineKeyboard([
+        [telegraf_1.Markup.button.callback("🗑 Удалить анкету", `admin:card:${cardId}:delete:confirm`)],
+        [telegraf_1.Markup.button.callback("👤 Владелец", `admin:user:${ownerUserId}:view`)],
+        [telegraf_1.Markup.button.callback("⬅️ К списку анкет", "admin:cards")],
+    ]);
+}
+function adminCardDeleteConfirmKeyboard(cardId, ownerUserId) {
+    return telegraf_1.Markup.inlineKeyboard([
+        [telegraf_1.Markup.button.callback("⚠️ Да, удалить", `admin:card:${cardId}:delete:apply`)],
+        [telegraf_1.Markup.button.callback("⬅️ Назад к анкете", `admin:card:${cardId}:view`)],
+        [telegraf_1.Markup.button.callback("👤 К владельцу", `admin:user:${ownerUserId}:view`)],
     ]);
 }
 function adminCuratorsKeyboard(curators) {

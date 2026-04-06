@@ -9,6 +9,8 @@ exports.rejectCard = rejectCard;
 exports.listCardsByCity = listCardsByCity;
 exports.listRecentCards = listRecentCards;
 exports.listCardsByOwner = listCardsByOwner;
+exports.listRecentCardsForAdmin = listRecentCardsForAdmin;
+exports.deleteCard = deleteCard;
 exports.countCards = countCards;
 const client_1 = require("../db/client");
 async function createCard(ownerUserId, draft, options = {}) {
@@ -118,6 +120,19 @@ async function listRecentCards(limit = 10, category) {
 async function listCardsByOwner(ownerUserId) {
     const db = await (0, client_1.getDb)();
     return db.all("SELECT * FROM cards WHERE owner_user_id = ? ORDER BY created_at DESC", ownerUserId);
+}
+async function listRecentCardsForAdmin(limit = 15) {
+    const db = await (0, client_1.getDb)();
+    return db.all("SELECT * FROM cards ORDER BY created_at DESC LIMIT ?", limit);
+}
+async function deleteCard(cardId) {
+    const db = await (0, client_1.getDb)();
+    const card = await getCardWithOwner(cardId);
+    if (!card) {
+        return null;
+    }
+    await db.run("DELETE FROM cards WHERE id = ?", cardId);
+    return card;
 }
 async function countCards() {
     const db = await (0, client_1.getDb)();
