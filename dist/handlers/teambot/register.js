@@ -1,0 +1,490 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.registerTeambotHandlers = registerTeambotHandlers;
+const admin_1 = require("../../keyboards/admin");
+const constants_1 = require("../../config/constants");
+const bot_clients_service_1 = require("../../services/bot-clients.service");
+const card_review_service_1 = require("../../services/card-review.service");
+const cards_service_1 = require("../../services/cards.service");
+const curators_service_1 = require("../../services/curators.service");
+const kassa_service_1 = require("../../services/kassa.service");
+const logging_service_1 = require("../../services/logging.service");
+const payment_requests_service_1 = require("../../services/payment-requests.service");
+const settings_service_1 = require("../../services/settings.service");
+const users_service_1 = require("../../services/users.service");
+const date_1 = require("../../utils/date");
+const text_1 = require("../../utils/text");
+const views_1 = require("./views");
+async function answerCallback(ctx) {
+    if ("callbackQuery" in ctx.update) {
+        await ctx.answerCbQuery().catch(() => undefined);
+    }
+}
+function isAdmin(ctx) {
+    return Boolean(ctx.state.isAdmin && ctx.state.user);
+}
+function isTeamMember(ctx) {
+    const user = ctx.state.user;
+    if (!user) {
+        return false;
+    }
+    return user.role === "worker" || user.role === "admin" || user.role === "curator" || user.has_worker_access === 1;
+}
+async function notifyClientAboutPaymentDecision(telegramId, text) {
+    try {
+        await (0, bot_clients_service_1.getServicebotTelegram)().sendMessage(telegramId, text, { parse_mode: "HTML" });
+    }
+    catch {
+        // ignore delivery errors
+    }
+}
+function buildTopWorkersSection(title, workers) {
+    const lines = [`<b>${title}</b>`];
+    if (!workers.length) {
+        lines.push("Данных пока нет.");
+        return lines.join("\n");
+    }
+    for (const [index, worker] of workers.entries()) {
+        const label = (0, text_1.escapeHtml)((0, text_1.formatUserLabel)(worker));
+        lines.push(`${index + 1}. ${label} — ${(0, text_1.formatMoney)(worker.totalAmount)} • ${worker.totalCount} шт.`);
+    }
+    return lines.join("\n");
+}
+async function buildKassaText() {
+    const [today, week, month, allTime, dayTop, weekTop, monthTop, allTop, projectStats] = await Promise.all([
+        (0, kassa_service_1.getKassaSummary)("day"),
+        (0, kassa_service_1.getKassaSummary)("week"),
+        (0, kassa_service_1.getKassaSummary)("month"),
+        (0, kassa_service_1.getKassaSummary)("all"),
+        (0, kassa_service_1.getTopWorkers)("day"),
+        (0, kassa_service_1.getTopWorkers)("week"),
+        (0, kassa_service_1.getTopWorkers)("month"),
+        (0, kassa_service_1.getTopWorkers)("all"),
+        (0, settings_service_1.getProjectStats)(),
+    ]);
+    return [
+        "<b>💸 Касса проекта</b>",
+        `🕒 Обновлено: ${(0, date_1.formatDateTime)(new Date())}`,
+        "",
+        "<b>Сводка</b>",
+        `Сегодня: ${today.totalCount} проф. • ${(0, text_1.formatMoney)(today.totalAmount)}`,
+        `Неделя: ${week.totalCount} проф. • ${(0, text_1.formatMoney)(week.totalAmount)}`,
+        `Месяц: ${month.totalCount} проф. • ${(0, text_1.formatMoney)(month.totalAmount)}`,
+        `Все время: ${allTime.totalCount} проф. • ${(0, text_1.formatMoney)(allTime.totalAmount)}`,
+        "",
+        `<b>Проект</b>`,
+        `Подтверждено профитов: ${projectStats.totalProfits}`,
+        `Сумма профитов: ${(0, text_1.formatMoney)(projectStats.totalProfitAmount)}`,
+        "",
+        buildTopWorkersSection("🏆 Топ воркеров за день", dayTop),
+        "",
+        buildTopWorkersSection("🏆 Топ воркеров за неделю", weekTop),
+        "",
+        buildTopWorkersSection("🏆 Топ воркеров за месяц", monthTop),
+        "",
+        buildTopWorkersSection("🏆 Топ воркеров за все время", allTop),
+    ].join("\n");
+}
+async function notifyWorkerChatAboutProfit(request) {
+    const workerChatId = await (0, settings_service_1.getWorkerChatId)();
+    if (!workerChatId) {
+        return;
+    }
+    const worker = request.worker_user_id ? await (0, users_service_1.getUserById)(request.worker_user_id) : null;
+    const clientLabel = `<code>${request.telegram_id}</code>${request.username ? ` (@${(0, text_1.escapeHtml)(request.username)})` : ""}`;
+    const workerLabel = worker ? (0, text_1.escapeHtml)((0, text_1.formatUserLabel)(worker)) : "не назначен";
+    const lines = [
+        "<b>💸 Новый профит</b>",
+        `Сумма: ${(0, text_1.formatMoney)(request.amount)}`,
+        `Клиент: ${clientLabel}`,
+        `Воркер: ${workerLabel}`,
+        `Заявка: #${request.id}`,
+        `Время: ${(0, date_1.formatDateTime)(new Date())}`,
+    ];
+    try {
+        await (0, bot_clients_service_1.getTeambotTelegram)().sendMessage(workerChatId, lines.join("\n"), { parse_mode: "HTML" });
+    }
+    catch {
+        // ignore delivery errors
+    }
+}
+function registerTeambotHandlers(bot) {
+    bot.start(async (ctx) => {
+        if (!ctx.from) {
+            return;
+        }
+        const user = await (0, users_service_1.registerTeambotUser)({
+            telegramId: ctx.from.id,
+            username: ctx.from.username,
+            firstName: ctx.from.first_name,
+        });
+        ctx.state.user = user ?? undefined;
+        await (0, views_1.showTeambotHome)(ctx);
+    });
+    bot.command("admin", async (ctx) => {
+        if (!isAdmin(ctx)) {
+            await ctx.reply("Команда доступна только администраторам.");
+            return;
+        }
+        await (0, views_1.showAdminHome)(ctx);
+    });
+    bot.command("kassa", async (ctx) => {
+        if (!isTeamMember(ctx)) {
+            await ctx.reply("Команда доступна только участникам команды.");
+            return;
+        }
+        if (ctx.chat && ctx.chat.type !== "private") {
+            await (0, settings_service_1.setWorkerChatId)(ctx.chat.id);
+        }
+        await (0, settings_service_1.recalculateProjectStats)();
+        await ctx.reply(await buildKassaText(), {
+            parse_mode: "HTML",
+            reply_markup: {
+                inline_keyboard: [[{ text: "🔄 Обновить", callback_data: "team:kassa:refresh" }]],
+            },
+        });
+    });
+    bot.hears(constants_1.TEAMBOT_MAIN_MENU[0], views_1.showTeamWorkMenu);
+    bot.hears(constants_1.TEAMBOT_MAIN_MENU[1], views_1.showTransferScreen);
+    bot.hears(constants_1.TEAMBOT_MAIN_MENU[2], views_1.showProfileScreen);
+    bot.hears(constants_1.TEAMBOT_MAIN_MENU[3], views_1.showCuratorsScreen);
+    bot.hears(constants_1.TEAMBOT_MAIN_MENU[4], views_1.showProjectInfoScreen);
+    bot.hears(constants_1.TEAM_WORK_MENU[0], async (ctx) => ctx.scene.enter("team-create-card"));
+    bot.hears(constants_1.TEAM_WORK_MENU[1], views_1.showWorkerReferralScreen);
+    bot.hears(constants_1.TEAM_WORK_MENU[2], views_1.showTeamWorkSettings);
+    bot.hears(constants_1.BACK_BUTTON, views_1.showTeambotHome);
+    bot.action("team:menu:work", async (ctx) => {
+        await answerCallback(ctx);
+        await (0, views_1.showTeamWorkMenu)(ctx);
+    });
+    bot.action("team:menu:transfer", async (ctx) => {
+        await answerCallback(ctx);
+        await (0, views_1.showTransferScreen)(ctx);
+    });
+    bot.action("team:menu:profile", async (ctx) => {
+        await answerCallback(ctx);
+        await (0, views_1.showProfileScreen)(ctx);
+    });
+    bot.action("team:menu:curators", async (ctx) => {
+        await answerCallback(ctx);
+        await (0, views_1.showCuratorsScreen)(ctx);
+    });
+    bot.action("team:menu:project", async (ctx) => {
+        await answerCallback(ctx);
+        await (0, views_1.showProjectInfoScreen)(ctx);
+    });
+    bot.action("team:kassa:refresh", async (ctx) => {
+        await answerCallback(ctx);
+        if (!isTeamMember(ctx)) {
+            return;
+        }
+        await (0, settings_service_1.recalculateProjectStats)();
+        await ctx.reply(await buildKassaText(), {
+            parse_mode: "HTML",
+            reply_markup: {
+                inline_keyboard: [[{ text: "🔄 Обновить", callback_data: "team:kassa:refresh" }]],
+            },
+        });
+    });
+    bot.action("admin:home", async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx)) {
+            return;
+        }
+        await (0, views_1.showAdminHome)(ctx);
+    });
+    bot.action("admin:stats", async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx)) {
+            return;
+        }
+        await (0, views_1.showAdminStats)(ctx);
+    });
+    bot.action("admin:users", async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx)) {
+            return;
+        }
+        await (0, views_1.showAdminUsersMenu)(ctx);
+    });
+    bot.action("admin:users:list", async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx)) {
+            return;
+        }
+        await (0, views_1.showRecentUsers)(ctx);
+    });
+    bot.action("admin:users:search", async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx)) {
+            return;
+        }
+        await ctx.scene.enter("admin-user-search");
+    });
+    bot.action(/^admin:user:(\d+):view$/, async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx)) {
+            return;
+        }
+        await (0, views_1.showAdminUserProfile)(ctx, Number(ctx.match[1]));
+    });
+    bot.action(/^admin:user:(\d+):role$/, async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx)) {
+            return;
+        }
+        const userId = Number(ctx.match[1]);
+        await ctx.reply("Выберите новую роль.", (0, admin_1.adminRoleKeyboard)(userId));
+    });
+    bot.action(/^admin:user:(\d+):set-role:(client|worker|curator|admin)$/, async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx)) {
+            return;
+        }
+        const userId = Number(ctx.match[1]);
+        const role = ctx.match[2];
+        await (0, users_service_1.setUserRole)(userId, role);
+        if (ctx.state.user) {
+            await (0, logging_service_1.logAdminAction)(ctx.state.user.id, "set_user_role", `user:${userId}; role:${role}`);
+        }
+        await (0, views_1.showAdminUserProfile)(ctx, userId);
+    });
+    bot.action(/^admin:user:(\d+):block$/, async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx)) {
+            return;
+        }
+        const userId = Number(ctx.match[1]);
+        const user = await (0, users_service_1.getUserById)(userId);
+        if (!user) {
+            await ctx.reply("Пользователь не найден.");
+            return;
+        }
+        await (0, users_service_1.setUserBlocked)(userId, user.is_blocked === 0);
+        if (ctx.state.user) {
+            await (0, logging_service_1.logAdminAction)(ctx.state.user.id, "toggle_block_user", `user:${userId}; blocked:${user.is_blocked === 0}`);
+        }
+        await (0, views_1.showAdminUserProfile)(ctx, userId);
+    });
+    bot.action(/^admin:user:(\d+):assign-curator$/, async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx)) {
+            return;
+        }
+        const user = await (0, users_service_1.getUserById)(Number(ctx.match[1]));
+        if (!user) {
+            await ctx.reply("Пользователь не найден.");
+            return;
+        }
+        ctx.session.curatorDraft = { userTelegramId: user.telegram_id };
+        await ctx.scene.enter("admin-curator-assign");
+    });
+    bot.action(/^admin:user:(\d+):remove-curator$/, async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx)) {
+            return;
+        }
+        const user = await (0, users_service_1.getUserById)(Number(ctx.match[1]));
+        if (!user) {
+            await ctx.reply("Пользователь не найден.");
+            return;
+        }
+        await (0, curators_service_1.unassignCuratorFromUser)(user.id);
+        if (ctx.state.user) {
+            await (0, logging_service_1.logAdminAction)(ctx.state.user.id, "unassign_curator", `user:${user.id}`);
+        }
+        await (0, views_1.showAdminUserProfile)(ctx, user.id);
+    });
+    bot.action("admin:curators", async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx)) {
+            return;
+        }
+        await (0, views_1.showAdminCurators)(ctx);
+    });
+    bot.action(/^admin:curator:view:(\d+)$/, async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx)) {
+            return;
+        }
+        await (0, views_1.showAdminCurator)(ctx, Number(ctx.match[1]));
+    });
+    bot.action(/^admin:curator:delete:(\d+)$/, async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx)) {
+            return;
+        }
+        const curatorId = Number(ctx.match[1]);
+        await (0, curators_service_1.deleteCurator)(curatorId);
+        if (ctx.state.user) {
+            await (0, logging_service_1.logAdminAction)(ctx.state.user.id, "delete_curator", `curator:${curatorId}`);
+        }
+        await (0, views_1.showAdminCurators)(ctx);
+    });
+    bot.action("admin:curator:add", async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx)) {
+            return;
+        }
+        await ctx.scene.enter("admin-curator-add");
+    });
+    bot.action("admin:curator:assign", async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx)) {
+            return;
+        }
+        ctx.session.curatorDraft = {};
+        await ctx.scene.enter("admin-curator-assign");
+    });
+    bot.action("admin:curator:unassign", async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx)) {
+            return;
+        }
+        await ctx.scene.enter("admin-curator-unassign");
+    });
+    bot.action("admin:transfer", async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx)) {
+            return;
+        }
+        await (0, views_1.showAdminTransfer)(ctx);
+    });
+    bot.action("admin:transfer:edit", async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx)) {
+            return;
+        }
+        await ctx.scene.enter("admin-transfer-edit");
+    });
+    bot.action("admin:project-stats", async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx)) {
+            return;
+        }
+        await (0, views_1.showAdminProjectStats)(ctx);
+    });
+    bot.action("admin:project-stats:edit", async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx)) {
+            return;
+        }
+        await ctx.scene.enter("admin-project-stats-edit");
+    });
+    bot.action("admin:project-stats:recalc", async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx)) {
+            return;
+        }
+        const stats = await (0, settings_service_1.recalculateProjectStats)();
+        if (ctx.state.user) {
+            await (0, logging_service_1.logAdminAction)(ctx.state.user.id, "recalculate_project_stats", JSON.stringify(stats));
+        }
+        await (0, views_1.showAdminProjectStats)(ctx);
+    });
+    bot.action(/^admin:payment-request:(\d+):(approve|reject)$/, async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx) || !ctx.state.user) {
+            return;
+        }
+        const requestId = Number(ctx.match[1]);
+        const decision = ctx.match[2];
+        const result = decision === "approve"
+            ? await (0, payment_requests_service_1.approvePaymentRequest)(requestId, ctx.state.user.id)
+            : await (0, payment_requests_service_1.rejectPaymentRequest)(requestId, ctx.state.user.id);
+        if (result.status === "missing") {
+            await ctx.reply("Заявка на оплату не найдена.");
+            return;
+        }
+        if (result.status === "processed") {
+            await ctx.reply(`Заявка #${requestId} уже была обработана ранее.`);
+            return;
+        }
+        if (decision === "approve" && result.request) {
+            await (0, settings_service_1.recalculateProjectStats)();
+            await (0, logging_service_1.logAdminAction)(ctx.state.user.id, "approve_payment_request", `request:${requestId}; amount:${result.request.amount}`);
+            await notifyClientAboutPaymentDecision(result.request.telegram_id, [
+                "<b>✅ Пополнение подтверждено</b>",
+                `На баланс зачислено ${result.request.amount.toFixed(2)} RUB.`,
+                "Проверьте профиль в Honey Bunny.",
+            ].join("\n"));
+            await notifyWorkerChatAboutProfit(result.request);
+            await ctx.reply(`Заявка #${requestId} принята. Баланс клиента пополнен.`);
+        }
+        if (decision === "reject" && result.request) {
+            await (0, logging_service_1.logAdminAction)(ctx.state.user.id, "reject_payment_request", `request:${requestId}; amount:${result.request.amount}`);
+            await notifyClientAboutPaymentDecision(result.request.telegram_id, [
+                "<b>❌ Пополнение отклонено</b>",
+                "Администратор не подтвердил перевод.",
+                "Проверьте чек и отправьте подтверждение еще раз.",
+            ].join("\n"));
+            await ctx.reply(`Заявка #${requestId} отклонена.`);
+        }
+        await ctx.editMessageReplyMarkup({ inline_keyboard: [] }).catch(() => undefined);
+    });
+    bot.action(/^admin:card-review:(\d+):(approve|reject)$/, async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx) || !ctx.state.user) {
+            return;
+        }
+        const cardId = Number(ctx.match[1]);
+        const decision = ctx.match[2];
+        const result = decision === "approve" ? await (0, cards_service_1.approveCard)(cardId, ctx.state.user.id) : await (0, cards_service_1.rejectCard)(cardId, ctx.state.user.id);
+        if (result.status === "missing") {
+            await ctx.reply("Анкета не найдена.");
+            return;
+        }
+        if (result.status === "processed") {
+            await ctx.reply(`Анкета #${cardId} уже была обработана ранее.`);
+            return;
+        }
+        if (result.card) {
+            await (0, card_review_service_1.notifyWorkerAboutCardReviewDecision)(result.card, decision === "approve" ? "approved" : "rejected");
+        }
+        if (decision === "approve") {
+            await (0, logging_service_1.logAdminAction)(ctx.state.user.id, "approve_card_review", `card:${cardId}`);
+            await ctx.reply(`Анкета #${cardId} одобрена и опубликована в Honey Bunny.`);
+        }
+        else {
+            await (0, logging_service_1.logAdminAction)(ctx.state.user.id, "reject_card_review", `card:${cardId}`);
+            await ctx.reply(`Анкета #${cardId} отклонена.`);
+        }
+        await ctx.editMessageReplyMarkup({ inline_keyboard: [] }).catch(() => undefined);
+    });
+    bot.action("admin:broadcast", async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx)) {
+            return;
+        }
+        await ctx.scene.enter("admin-broadcast");
+    });
+    bot.action("admin:logs", async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx)) {
+            return;
+        }
+        await (0, views_1.showAdminLogsMenu)(ctx);
+    });
+    bot.action("admin:logs:actions", async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx)) {
+            return;
+        }
+        await (0, views_1.showAdminActionLogs)(ctx);
+    });
+    bot.action("admin:logs:errors", async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx)) {
+            return;
+        }
+        await (0, views_1.showAdminErrorLogs)(ctx);
+    });
+    bot.action("admin:close", async (ctx) => {
+        await answerCallback(ctx);
+        await (0, views_1.showTeambotHome)(ctx);
+    });
+    bot.action("common:close", async (ctx) => {
+        await answerCallback(ctx);
+        await (0, views_1.showTeambotHome)(ctx);
+    });
+}

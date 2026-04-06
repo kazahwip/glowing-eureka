@@ -1,0 +1,316 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.showTeambotHome = showTeambotHome;
+exports.showTeamWorkMenu = showTeamWorkMenu;
+exports.showTeamWorkSettings = showTeamWorkSettings;
+exports.showWorkerReferralScreen = showWorkerReferralScreen;
+exports.showTransferScreen = showTransferScreen;
+exports.showProfileScreen = showProfileScreen;
+exports.showCuratorsScreen = showCuratorsScreen;
+exports.showProjectInfoScreen = showProjectInfoScreen;
+exports.showAdminHome = showAdminHome;
+exports.showAdminStats = showAdminStats;
+exports.showAdminUsersMenu = showAdminUsersMenu;
+exports.showRecentUsers = showRecentUsers;
+exports.showAdminUserProfile = showAdminUserProfile;
+exports.showAdminCurators = showAdminCurators;
+exports.showAdminCurator = showAdminCurator;
+exports.showAdminTransfer = showAdminTransfer;
+exports.showAdminProjectStats = showAdminProjectStats;
+exports.showAdminLogsMenu = showAdminLogsMenu;
+exports.showAdminActionLogs = showAdminActionLogs;
+exports.showAdminErrorLogs = showAdminErrorLogs;
+const telegraf_1 = require("telegraf");
+const admin_1 = require("../../keyboards/admin");
+const teambot_1 = require("../../keyboards/teambot");
+const cards_service_1 = require("../../services/cards.service");
+const clients_service_1 = require("../../services/clients.service");
+const curators_service_1 = require("../../services/curators.service");
+const kassa_service_1 = require("../../services/kassa.service");
+const logging_service_1 = require("../../services/logging.service");
+const referrals_service_1 = require("../../services/referrals.service");
+const settings_service_1 = require("../../services/settings.service");
+const users_service_1 = require("../../services/users.service");
+const date_1 = require("../../utils/date");
+const media_1 = require("../../utils/media");
+const text_1 = require("../../utils/text");
+function getPhotoExtra(markup) {
+    return markup;
+}
+function getMessageExtra(markup) {
+    return markup;
+}
+async function showTeambotHome(ctx) {
+    const cleanupMessage = await ctx.reply(".", telegraf_1.Markup.removeKeyboard()).catch(() => null);
+    if (cleanupMessage && "message_id" in cleanupMessage) {
+        await ctx.deleteMessage(cleanupMessage.message_id).catch(() => undefined);
+    }
+    await (0, media_1.sendScreen)(ctx, {
+        botKind: "teambot",
+        banner: "menu.png",
+        text: "",
+        photoExtra: getPhotoExtra((0, teambot_1.teambotMainMenuInlineKeyboard)()),
+        messageExtra: getMessageExtra((0, teambot_1.teambotMainMenuInlineKeyboard)()),
+    });
+}
+async function showTeamWorkMenu(ctx) {
+    await (0, media_1.sendScreen)(ctx, {
+        botKind: "teambot",
+        banner: "bot.png",
+        text: [
+            "<b>💼 Бот для работы</b>",
+            "",
+            "В этом разделе можно создавать карточки, получать личную реферальную ссылку и открывать рабочие настройки.",
+        ].join("\n"),
+        photoExtra: getPhotoExtra((0, teambot_1.teamWorkKeyboard)()),
+        messageExtra: getMessageExtra((0, teambot_1.teamWorkKeyboard)()),
+    });
+}
+async function showTeamWorkSettings(ctx) {
+    await ctx.reply([
+        "<b>⚙️ Настройки воркера</b>",
+        "",
+        "Здесь собраны быстрые подсказки по рабочему разделу.",
+        "🔗 Моя рефка вынесена в отдельную кнопку, чтобы ссылку можно было быстро копировать и отправлять клиентам.",
+        "Все переходы по реферальной ссылке и ключевые действия в Honey Bunny закрепляются за вами и приходят в личные сообщения teambot.",
+    ].join("\n"), {
+        parse_mode: "HTML",
+        ...(0, teambot_1.teambotBackKeyboard)(),
+    });
+}
+async function showWorkerReferralScreen(ctx) {
+    const user = ctx.state.user;
+    if (!user) {
+        await ctx.reply("Сначала выполните /start.");
+        return;
+    }
+    const servicebotUsername = await (0, settings_service_1.getServicebotUsername)();
+    const referralLink = (0, referrals_service_1.buildServicebotReferralLink)(user.id, servicebotUsername);
+    const stats = await (0, clients_service_1.getWorkerClientsStats)(user.id);
+    await ctx.reply([
+        "<b>🔗 Моя рефка</b>",
+        "",
+        "Ваша персональная ссылка для Honey Bunny:",
+        referralLink
+            ? `<code>${(0, text_1.escapeHtml)(referralLink)}</code>`
+            : "Ссылка появится после запуска servicebot с публичным username.",
+        "",
+        `🐘 Закреплено мамонтов: ${stats.total}`,
+        "Переходы, открытие вкладок, выбор моделей и шаги к пополнению будут приходить вам в личные сообщения teambot.",
+    ].join("\n"), {
+        parse_mode: "HTML",
+        ...(0, teambot_1.teambotBackKeyboard)(),
+    });
+}
+async function showTransferScreen(ctx) {
+    const transferDetails = await (0, settings_service_1.getTransferDetails)();
+    await (0, media_1.sendScreen)(ctx, {
+        botKind: "teambot",
+        banner: "karta.png",
+        text: ["<b>💳 Карта для переводов</b>", "", "Актуальные реквизиты:", (0, text_1.escapeHtml)(transferDetails)].join("\n"),
+        photoExtra: getPhotoExtra((0, teambot_1.teambotBackKeyboard)()),
+        messageExtra: getMessageExtra((0, teambot_1.teambotBackKeyboard)()),
+    });
+}
+async function showProfileScreen(ctx) {
+    const user = ctx.state.user;
+    if (!user) {
+        await ctx.reply("Сначала выполните /start.");
+        return;
+    }
+    const profitMetrics = await (0, kassa_service_1.getWorkerProfitMetrics)(user.id);
+    await (0, media_1.sendScreen)(ctx, {
+        botKind: "teambot",
+        banner: "profile.png",
+        text: (0, text_1.buildTeamProfileText)(user, profitMetrics.totalCount),
+        photoExtra: getPhotoExtra((0, teambot_1.teambotBackKeyboard)()),
+        messageExtra: getMessageExtra((0, teambot_1.teambotBackKeyboard)()),
+    });
+}
+async function showCuratorsScreen(ctx) {
+    const user = ctx.state.user;
+    const curator = user?.curator_id ? await (0, curators_service_1.getCuratorById)(user.curator_id) : null;
+    await (0, media_1.sendScreen)(ctx, {
+        botKind: "teambot",
+        banner: "curators.png",
+        text: (0, text_1.buildCuratorText)(curator),
+        photoExtra: getPhotoExtra((0, teambot_1.teambotBackKeyboard)()),
+        messageExtra: getMessageExtra((0, teambot_1.teambotBackKeyboard)()),
+    });
+}
+async function showProjectInfoScreen(ctx) {
+    const stats = await (0, settings_service_1.getProjectStats)();
+    await (0, media_1.sendScreen)(ctx, {
+        botKind: "teambot",
+        banner: "info.png",
+        text: (0, text_1.buildProjectInfoText)(stats),
+        photoExtra: getPhotoExtra((0, teambot_1.teambotBackKeyboard)()),
+        messageExtra: getMessageExtra((0, teambot_1.teambotBackKeyboard)()),
+    });
+}
+async function showAdminHome(ctx) {
+    await ctx.reply(["<b>🛡 Админ-панель teambot</b>", "", "Выберите нужный раздел управления."].join("\n"), {
+        parse_mode: "HTML",
+        ...(0, admin_1.adminHomeKeyboard)(),
+    });
+}
+async function showAdminStats(ctx) {
+    const users = await (0, users_service_1.getUserStatsSummary)();
+    const cards = await (0, cards_service_1.countCards)();
+    await ctx.reply([
+        "<b>📊 Общая статистика</b>",
+        "",
+        `👥 Пользователей: ${users.totalUsers}`,
+        `💼 Активных сотрудников: ${users.activeWorkers}`,
+        `📝 Создано карточек: ${cards}`,
+        `💸 Общий профит: ${(0, text_1.formatMoney)(users.totalProfit)}`,
+        `📈 Средний профит: ${(0, text_1.formatMoney)(users.avgProfit)}`,
+    ].join("\n"), {
+        parse_mode: "HTML",
+        ...(0, admin_1.adminHomeKeyboard)(),
+    });
+}
+async function showAdminUsersMenu(ctx) {
+    await ctx.reply("<b>👥 Управление пользователями</b>\n\nВыберите действие.", {
+        parse_mode: "HTML",
+        ...(0, admin_1.adminUsersKeyboard)(),
+    });
+}
+async function showRecentUsers(ctx) {
+    const users = await (0, users_service_1.listRecentUsers)(10);
+    if (!users.length) {
+        await ctx.reply("Пользователей пока нет.", {
+            ...(0, admin_1.adminUsersKeyboard)(),
+        });
+        return;
+    }
+    const keyboard = {
+        inline_keyboard: [
+            ...users.map((user) => [
+                { text: `${user.id}. ${(0, text_1.formatUserLabel)(user)} (${user.telegram_id})`, callback_data: `admin:user:${user.id}:view` },
+            ]),
+            [{ text: "⬅️ Назад", callback_data: "admin:users" }],
+        ],
+    };
+    await ctx.reply("<b>🕘 Последние пользователи</b>", {
+        parse_mode: "HTML",
+        reply_markup: keyboard,
+    });
+}
+function buildAdminUserText(user, curatorName) {
+    return [
+        "<b>👤 Профиль пользователя</b>",
+        "",
+        `ID записи: ${user.id}`,
+        `Telegram ID: <code>${user.telegram_id}</code>`,
+        `Username: ${user.username ? `@${(0, text_1.escapeHtml)(user.username)}` : "не указан"}`,
+        `Имя: ${user.first_name ? (0, text_1.escapeHtml)(user.first_name) : "не указано"}`,
+        `Роль: ${(0, text_1.getRoleTitle)(user.role)}`,
+        `Статус: ${user.is_blocked ? "⛔ Заблокирован" : "✅ Активен"}`,
+        `Баланс: ${(0, text_1.formatMoney)(user.balance)}`,
+        `Профит: ${(0, text_1.formatMoney)(user.total_profit)}`,
+        `Куратор: ${curatorName ? (0, text_1.escapeHtml)(curatorName) : "не назначен"}`,
+        `Создан: ${(0, date_1.formatDateTime)(user.created_at)}`,
+    ].join("\n");
+}
+async function showAdminUserProfile(ctx, userId) {
+    const user = await (0, users_service_1.getUserById)(userId);
+    if (!user) {
+        await ctx.reply("Пользователь не найден.");
+        return;
+    }
+    const curator = user.curator_id ? await (0, curators_service_1.getCuratorById)(user.curator_id) : null;
+    await ctx.reply(buildAdminUserText(user, curator?.name), {
+        parse_mode: "HTML",
+        ...(0, admin_1.adminUserActionsKeyboard)(user.id, user.is_blocked === 1, Boolean(user.curator_id)),
+    });
+}
+async function showAdminCurators(ctx) {
+    const curators = await (0, curators_service_1.listCurators)();
+    const text = curators.length
+        ? "<b>🧑‍💼 Кураторы</b>\n\nВыберите куратора или действие ниже."
+        : "<b>🧑‍💼 Кураторы</b>\n\nПока нет активных кураторов.";
+    await ctx.reply(text, {
+        parse_mode: "HTML",
+        ...(0, admin_1.adminCuratorsKeyboard)(curators),
+    });
+}
+async function showAdminCurator(ctx, curatorId) {
+    const curator = await (0, curators_service_1.getCuratorById)(curatorId);
+    if (!curator) {
+        await ctx.reply("Куратор не найден.");
+        return;
+    }
+    await ctx.reply([
+        "<b>🧑‍💼 Карточка куратора</b>",
+        "",
+        `ID: ${curator.id}`,
+        `Имя: ${(0, text_1.escapeHtml)(curator.name)}`,
+        `Описание: ${curator.description ? (0, text_1.escapeHtml)(curator.description) : "не заполнено"}`,
+        `Статус: ${curator.is_active ? "✅ Активен" : "⛔ Отключен"}`,
+    ].join("\n"), {
+        parse_mode: "HTML",
+        ...(0, admin_1.adminCuratorActionsKeyboard)(curator.id),
+    });
+}
+async function showAdminTransfer(ctx) {
+    const transferDetails = await (0, settings_service_1.getTransferDetails)();
+    await ctx.reply([
+        "<b>💳 Реквизиты</b>",
+        "",
+        (0, text_1.escapeHtml)(transferDetails),
+        "",
+        "Чтобы изменить данные, нажмите кнопку ниже.",
+    ].join("\n"), {
+        parse_mode: "HTML",
+        reply_markup: {
+            inline_keyboard: [
+                [{ text: "✏️ Изменить реквизиты", callback_data: "admin:transfer:edit" }],
+                [{ text: "⬅️ Назад", callback_data: "admin:home" }],
+            ],
+        },
+    });
+}
+async function showAdminProjectStats(ctx) {
+    const stats = await (0, settings_service_1.getProjectStats)();
+    await ctx.reply([
+        "<b>📈 Статистика проекта</b>",
+        "",
+        `📊 Профитов: ${stats.totalProfits}`,
+        `💸 Сумма профитов: ${(0, text_1.formatMoney)(stats.totalProfitAmount)}`,
+        `💳 Процент выплат: ${stats.payoutPercent}%`,
+    ].join("\n"), {
+        parse_mode: "HTML",
+        ...(0, admin_1.adminProjectStatsKeyboard)(),
+    });
+}
+async function showAdminLogsMenu(ctx) {
+    await ctx.reply("<b>🗂 Логи</b>\n\nВыберите тип журнала.", {
+        parse_mode: "HTML",
+        ...(0, admin_1.adminLogsKeyboard)(),
+    });
+}
+async function showAdminActionLogs(ctx) {
+    const logs = await (0, logging_service_1.getRecentAdminLogs)(10);
+    const text = logs.length
+        ? logs
+            .map((log) => `🕒 ${(0, date_1.formatDateTime)(log.created_at)} | admin #${log.admin_user_id}\n${(0, text_1.escapeHtml)(log.action)}${log.details ? `\n${(0, text_1.escapeHtml)(log.details)}` : ""}`)
+            .join("\n\n")
+        : "Журнал действий пока пуст.";
+    await ctx.reply(`<b>📝 Журнал действий</b>\n\n${text}`, {
+        parse_mode: "HTML",
+        ...(0, admin_1.adminLogsKeyboard)(),
+    });
+}
+async function showAdminErrorLogs(ctx) {
+    const logs = await (0, logging_service_1.getRecentErrorLogs)(10);
+    const text = logs.length
+        ? logs
+            .map((log) => `🕒 ${(0, date_1.formatDateTime)(log.created_at)} | ${(0, text_1.escapeHtml)(log.bot_name)} | ${log.user_telegram_id ?? "n/a"}\n${(0, text_1.escapeHtml)(log.message)}`)
+            .join("\n\n")
+        : "Журнал ошибок пока пуст.";
+    await ctx.reply(`<b>🚨 Журнал ошибок</b>\n\n${text}`, {
+        parse_mode: "HTML",
+        ...(0, admin_1.adminLogsKeyboard)(),
+    });
+}
