@@ -92,6 +92,16 @@ function createRandom(seedValue) {
 function getRandomInt(random, min, max) {
     return Math.floor(random() * (max - min + 1)) + min;
 }
+function clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+}
+function getAgeStatFactor(age) {
+    const normalized = clamp((age - 18) / 12, 0, 1);
+    return 0.38 + normalized * 0.62;
+}
+function scaleStat(value, factor, minimum) {
+    return Math.max(minimum, Math.round(value * factor));
+}
 function formatPreciseMoney(amount) {
     return `${amount.toFixed(2)} RUB`;
 }
@@ -103,26 +113,28 @@ function formatRuDate(date) {
 }
 function buildStats(card) {
     const random = createRandom(`stats:${card.id}:${card.name}:${card.city}`);
+    const ageFactor = getAgeStatFactor(card.age);
     const verificationNumber = getRandomInt(random, 41000, 89999);
     const issuedAt = new Date();
     issuedAt.setDate(issuedAt.getDate() - getRandomInt(random, 6, 28));
     const nextCheckAt = new Date(issuedAt);
     nextCheckAt.setDate(nextCheckAt.getDate() + getRandomInt(random, 21, 36));
+    const ratingValue = clamp(getRandomInt(random, 45, 47) + Math.round(ageFactor * 3), 45, 50);
     return {
         verificationId: `LUX-${verificationNumber}`,
-        rating: (getRandomInt(random, 47, 50) / 10).toFixed(1),
-        reviewsCount: getRandomInt(random, 182, 587),
-        completedProjects: getRandomInt(random, 58, 214),
-        positivePercent: getRandomInt(random, 94, 99),
-        regularClients: getRandomInt(random, 12, 34),
+        rating: (ratingValue / 10).toFixed(1),
+        reviewsCount: scaleStat(getRandomInt(random, 182, 587), ageFactor, 72),
+        completedProjects: scaleStat(getRandomInt(random, 58, 214), ageFactor, 24),
+        positivePercent: clamp(getRandomInt(random, 92, 95) + Math.round(ageFactor * 4), 92, 99),
+        regularClients: scaleStat(getRandomInt(random, 12, 34), 0.45 + ageFactor * 0.55, 4),
         issuedAt: formatRuDate(issuedAt),
         nextCheckAt: formatRuDate(nextCheckAt),
         signature: `HB${verificationNumber}${getRandomInt(random, 100000, 999999)}`,
         hotOfferDiscount: getRandomInt(random, 11, 25),
         hotOfferSlot: todaySlots[getRandomInt(random, 1, 3)],
         hotOfferMinutesLeft: getRandomInt(random, 19, 58),
-        popularity: getRandomInt(random, 7, 10),
-        liveViewers: getRandomInt(random, 1, 4),
+        popularity: clamp(getRandomInt(random, 5, 7) + Math.round(ageFactor * 3), 5, 10),
+        liveViewers: clamp(getRandomInt(random, 1, 2) + Math.round(ageFactor * 2), 1, 4),
     };
 }
 function formatDaysAgo(daysAgo) {
