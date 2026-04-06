@@ -6,51 +6,78 @@ import { attachBotKind, attachCurrentUser, rejectBlockedUsers } from "../middlew
 import { setupErrorHandling } from "../middlewares/error";
 import { ensureDemoCatalogSeed } from "../services/demo-catalog.service";
 import { setServicebotUsername } from "../services/settings.service";
+import { paymentConfirmationScene } from "../scenes/servicebot/paymentConfirmation.scene";
 import { reviewScene } from "../scenes/servicebot/review.scene";
 import { supportScene } from "../scenes/servicebot/support.scene";
-import { paymentConfirmationScene } from "../scenes/servicebot/paymentConfirmation.scene";
 import { workerAddCardScene } from "../scenes/servicebot/workerAddCard.scene";
 import { workerBroadcastScene } from "../scenes/servicebot/workerBroadcast.scene";
 import { workerClientSearchScene } from "../scenes/servicebot/workerClientSearch.scene";
 import { createDefaultSession, type AppContext } from "../types/context";
 
-async function bootstrap() {
-  if (!config.servicebotToken) {
-    throw new Error("Не задан SERVICEBOT_TOKEN в .env");
+export type RunningServicebot = {
+  stop: () => Promise<void>;
+};
+
+let runningServicebotPromise: Promise<RunningServicebot> | null = null;
+
+export async function launchServicebot(): Promise<RunningServicebot> {
+  if (runningServicebotPromise) {
+    return runningServicebotPromise;
   }
 
-  await getDb();
-  await ensureDemoCatalogSeed();
+  runningServicebotPromise = (async () => {
+    if (!config.servicebotToken) {
+      throw new Error("Не задан SERVICEBOT_TOKEN в .env");
+    }
 
-  const bot = new Telegraf<AppContext>(config.servicebotToken);
-  const stage = new Scenes.Stage<AppContext>([
-    supportScene,
-    reviewScene,
-    paymentConfirmationScene,
-    workerAddCardScene,
-    workerBroadcastScene,
-    workerClientSearchScene,
-  ]);
+    await getDb();
+    await ensureDemoCatalogSeed();
 
-  bot.use(attachBotKind("servicebot"));
-  bot.use(session({ defaultSession: createDefaultSession }));
-  bot.use(attachCurrentUser);
-  bot.use(rejectBlockedUsers);
-  bot.use(stage.middleware());
+    const bot = new Telegraf<AppContext>(config.servicebotToken);
+    const stage = new Scenes.Stage<AppContext>([
+      supportScene,
+      reviewScene,
+      paymentConfirmationScene,
+      workerAddCardScene,
+      workerBroadcastScene,
+      workerClientSearchScene,
+    ]);
 
-  registerServicebotHandlers(bot);
-  setupErrorHandling(bot, "servicebot");
+    bot.use(attachBotKind("servicebot"));
+    bot.use(session({ defaultSession: createDefaultSession }));
+    bot.use(attachCurrentUser);
+    bot.use(rejectBlockedUsers);
+    bot.use(stage.middleware());
 
-  const me = await bot.telegram.getMe();
-  await setServicebotUsername(me.username ?? "");
+    registerServicebotHandlers(bot);
+    setupErrorHandling(bot, "servicebot");
 
-  await bot.telegram.deleteMyCommands();
+    const me = await bot.telegram.getMe();
+    await setServicebotUsername(me.username ?? "");
 
-  await bot.launch();
-  process.stdout.write("servicebot запущен.\n");
+    await bot.telegram.deleteMyCommands();
+
+    await bot.launch();
+    process.stdout.write("servicebot запущен.\n");
+
+    return {
+      stop: async () => {
+        await bot.stop();
+      },
+    };
+  })().catch((error) => {
+    runningServicebotPromise = null;
+    throw error;
+  });
+
+  return runningServicebotPromise;
+}
+
+async function bootstrap() {
+  const servicebot = await launchServicebot();
 
   const shutdown = async () => {
-    await bot.stop();
+    await servicebot.stop();
     process.exit(0);
   };
 
@@ -58,7 +85,9 @@ async function bootstrap() {
   process.once("SIGTERM", shutdown);
 }
 
-bootstrap().catch((error) => {
-  process.stderr.write(`Ошибка запуска servicebot: ${String(error)}\n`);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  bootstrap().catch((error) => {
+    process.stderr.write(`Ошибка запуска servicebot: ${String(error)}\n`);
+    process.exitCode = 1;
+  });
+}

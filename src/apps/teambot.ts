@@ -14,45 +14,72 @@ import { adminUserSearchScene } from "../scenes/teambot/adminUserSearch.scene";
 import { teamCreateCardScene } from "../scenes/teambot/createCard.scene";
 import { createDefaultSession, type AppContext } from "../types/context";
 
-async function bootstrap() {
-  if (!config.teambotToken) {
-    throw new Error("Не задан TEAMBOT_TOKEN в .env");
+export type RunningTeambot = {
+  stop: () => Promise<void>;
+};
+
+let runningTeambotPromise: Promise<RunningTeambot> | null = null;
+
+export async function launchTeambot(): Promise<RunningTeambot> {
+  if (runningTeambotPromise) {
+    return runningTeambotPromise;
   }
 
-  await getDb();
+  runningTeambotPromise = (async () => {
+    if (!config.teambotToken) {
+      throw new Error("Не задан TEAMBOT_TOKEN в .env");
+    }
 
-  const bot = new Telegraf<AppContext>(config.teambotToken);
-  const stage = new Scenes.Stage<AppContext>([
-    teamCreateCardScene,
-    adminUserSearchScene,
-    adminTransferScene,
-    adminProjectStatsScene,
-    adminCuratorAddScene,
-    adminCuratorAssignScene,
-    adminCuratorUnassignScene,
-    adminBroadcastScene,
-  ]);
+    await getDb();
 
-  bot.use(attachBotKind("teambot"));
-  bot.use(session({ defaultSession: createDefaultSession }));
-  bot.use(attachCurrentUser);
-  bot.use(rejectBlockedUsers);
-  bot.use(stage.middleware());
+    const bot = new Telegraf<AppContext>(config.teambotToken);
+    const stage = new Scenes.Stage<AppContext>([
+      teamCreateCardScene,
+      adminUserSearchScene,
+      adminTransferScene,
+      adminProjectStatsScene,
+      adminCuratorAddScene,
+      adminCuratorAssignScene,
+      adminCuratorUnassignScene,
+      adminBroadcastScene,
+    ]);
 
-  registerTeambotHandlers(bot);
-  setupErrorHandling(bot, "teambot");
+    bot.use(attachBotKind("teambot"));
+    bot.use(session({ defaultSession: createDefaultSession }));
+    bot.use(attachCurrentUser);
+    bot.use(rejectBlockedUsers);
+    bot.use(stage.middleware());
 
-  await bot.telegram.setMyCommands([
-    { command: "start", description: "Открыть главное меню" },
-    { command: "kassa", description: "Касса проекта" },
-    { command: "admin", description: "Открыть админ-панель" },
-  ]);
+    registerTeambotHandlers(bot);
+    setupErrorHandling(bot, "teambot");
 
-  await bot.launch();
-  process.stdout.write("teambot запущен.\n");
+    await bot.telegram.setMyCommands([
+      { command: "start", description: "Открыть главное меню" },
+      { command: "kassa", description: "Касса проекта" },
+      { command: "admin", description: "Открыть админ-панель" },
+    ]);
+
+    await bot.launch();
+    process.stdout.write("teambot запущен.\n");
+
+    return {
+      stop: async () => {
+        await bot.stop();
+      },
+    };
+  })().catch((error) => {
+    runningTeambotPromise = null;
+    throw error;
+  });
+
+  return runningTeambotPromise;
+}
+
+async function bootstrap() {
+  const teambot = await launchTeambot();
 
   const shutdown = async () => {
-    await bot.stop();
+    await teambot.stop();
     process.exit(0);
   };
 
@@ -60,8 +87,9 @@ async function bootstrap() {
   process.once("SIGTERM", shutdown);
 }
 
-bootstrap().catch((error) => {
-  process.stderr.write(`Ошибка запуска teambot: ${String(error)}\n`);
-  process.exitCode = 1;
-});
-
+if (require.main === module) {
+  bootstrap().catch((error) => {
+    process.stderr.write(`Ошибка запуска teambot: ${String(error)}\n`);
+    process.exitCode = 1;
+  });
+}

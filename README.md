@@ -2,14 +2,14 @@
 
 Два связанных Telegram-бота на `Node.js + TypeScript + Telegraf`:
 
-- `teambot` для команды, карточек, профилей, кассы и админ-панели
-- `servicebot` для каталога, профиля клиента, отзывов, поддержки и воркер-панели
+- `teambot` для внутренней работы команды, профилей, карточек и админ-панели
+- `servicebot` для клиентского каталога, профиля, отзывов, поддержки и воркер-панели
 
 Оба бота работают с общей БД и общей бизнес-логикой.
 
 ## Стек
 
-- Node.js 20+
+- Node.js 18+
 - TypeScript
 - Telegraf 4
 - SQLite
@@ -34,6 +34,9 @@ src/
   types/
   utils/
 .env.example
+bothost.js
+teambot.js
+servicebot.js
 package.json
 README.md
 tsconfig.json
@@ -113,32 +116,26 @@ npm run start:service
 - оба используют общую таблицу `users`
 - регистрация в `teambot` автоматически открывает воркер-доступ в `servicebot`
 - `/awake` в `servicebot` вручную поднимает флаг `has_worker_access`
-- воркерские реферальные ссылки создаются в `teambot`, а действия клиента в `servicebot` могут уходить воркеру в личные сообщения `teambot`
+- реферальные ссылки создаются в `teambot`, а действия клиента в `servicebot` могут уходить воркеру в личные сообщения `teambot`
 
 ## Bothost.ru
 
-Проект адаптирован под деплой на Bothost через один и тот же GitHub-репозиторий.
+Проект адаптирован под деплой на Bothost в **один проект**: `bothost.js` поднимает `teambot` и `servicebot` одновременно.
 
 ### Что уже подготовлено
 
-- добавлен единый launcher: `src/apps/bothost.ts`
-- добавлен root-launcher `bothost.js` для платформ, которые ждут файл в корне проекта
-- `npm start` запускает нужного бота через переменную `BOT_INSTANCE`
-- есть `.env.example` под прод-окружение
-- `.gitignore` исключает `.env`, `data/`, `logs/`, `dist/` и `node_modules`
+- общий launcher: `src/apps/bothost.ts`
+- root-launcher `bothost.js` для панелей, которые ждут главный файл в корне проекта
+- `npm start` запускает оба Telegram-бота сразу
+- `teambot.js` и `servicebot.js` оставлены для одиночного запуска
+- `BOT_INSTANCE` больше не нужен для основного деплоя, но оставлен как legacy-режим
 
 ### Как деплоить на Bothost
 
-According to the official Bothost Telegram hosting page, сервис поддерживает Git Deploy, преднастроенное Node.js/JS-окружение для `Telegraf`, Long Polling и Webhook, а также автоперезапуск и env-переменные: https://bothost.ru/telegram-bots
+According to the official Bothost Telegram hosting page, сервис поддерживает Git Deploy, Node.js/JS-окружение для `Telegraf`, Long Polling/Webhook, env-переменные и автоперезапуск: https://bothost.ru/telegram-bots
 
-Рекомендуемая схема для этого проекта:
-
-1. Создайте **два проекта** на Bothost из одного и того же GitHub-репозитория.
-2. В первом проекте задайте:
-   - `BOT_INSTANCE=teambot`
-3. Во втором проекте задайте:
-   - `BOT_INSTANCE=servicebot`
-4. В обоих проектах укажите:
+1. Создайте **один** проект на Bothost.
+2. Укажите:
    - `TEAMBOT_TOKEN`
    - `SERVICEBOT_TOKEN`
    - `ADMIN_TELEGRAM_IDS`
@@ -146,19 +143,19 @@ According to the official Bothost Telegram hosting page, сервис подде
    - `PROJECT_START_DATE`
    - `PROJECT_PAYOUT_PERCENT`
    - `DEFAULT_TRANSFER_DETAILS`
-5. Build command:
+3. Build command:
 
 ```bash
 npm install && npm run build
 ```
 
-6. Start command:
+4. Start command:
 
 ```bash
 npm start
 ```
 
-7. Если в панели есть поле `Главный файл`, указывайте:
+5. Если в панели есть поле `Главный файл`, указывайте:
 
 ```text
 bothost.js
@@ -166,17 +163,14 @@ bothost.js
 
 ### Важно по хранилищу
 
-- если используете SQLite, путь `DATABASE_PATH` должен указывать на **постоянное хранилище** Bothost, иначе БД потеряется после пересоздания контейнера
+- если используете SQLite, путь `DATABASE_PATH` должен указывать на постоянное хранилище Bothost, иначе БД потеряется после пересоздания контейнера
 - если на тарифе нет постоянного volume, лучше вынести БД во внешний PostgreSQL
-- для `servicebot` demo-каталог и локальные фото пересоздаются/скачиваются в `data/media`, поэтому это тоже лучше хранить на persistent storage
+- demo-каталог и локальные фото сохраняются в `data/media`, поэтому их тоже лучше хранить на persistent storage
 
 ### Рекомендуемая env-конфигурация для Bothost
 
-Пример:
-
 ```env
 NODE_ENV=production
-BOT_INSTANCE=teambot
 TEAMBOT_TOKEN=...
 SERVICEBOT_TOKEN=...
 ADMIN_TELEGRAM_IDS=123456789
@@ -189,7 +183,7 @@ PROJECT_PAYOUT_PERCENT=75
 DEFAULT_TRANSFER_DETAILS=2200701789834873 Т-банк
 ```
 
-Если у вас volume примонтирован в другой путь, просто поменяйте `DATABASE_PATH`.
+`BOT_INSTANCE` можно не задавать. Если вы всё же хотите вручную запустить только один бот через `bothost.js`, допустимы значения `teambot` или `servicebot`.
 
 ## Команды
 
