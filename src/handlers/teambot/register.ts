@@ -17,7 +17,7 @@ import { getKassaSummary, getTopWorkers } from "../../services/kassa.service";
 import { logAdminAction } from "../../services/logging.service";
 import { approvePaymentRequest, rejectPaymentRequest, type PaymentRequestWithUser } from "../../services/payment-requests.service";
 import { getProjectStats, getWorkerChatId, recalculateProjectStats, setWorkerChatId } from "../../services/settings.service";
-import { getUserById, registerTeambotUser, setUserBlocked, setUserRole } from "../../services/users.service";
+import { getUserById, isWorkerSignalEnabled, registerTeambotUser, setUserBlocked, setUserRole, updateWorkerSignalSetting } from "../../services/users.service";
 import type { AppContext } from "../../types/context";
 import { formatDateTime } from "../../utils/date";
 import { escapeHtml, formatMoney, formatUserLabel } from "../../utils/text";
@@ -326,6 +326,29 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
   bot.hears(BACK_BUTTON, showTeambotHome);
 
   bot.action("team:menu:work", async (ctx) => {
+    await answerCallback(ctx);
+    await showTeamWorkMenu(ctx);
+  });
+
+  bot.action(/^team:signals:toggle:(referrals|navigation|search|payments|bookings)$/, async (ctx) => {
+    if (!ctx.state.user) {
+      await ctx.answerCbQuery("Сначала выполните /start", { show_alert: true }).catch(() => undefined);
+      return;
+    }
+
+    const category = ctx.match[1] as "referrals" | "navigation" | "search" | "payments" | "bookings";
+    const nextEnabled = !isWorkerSignalEnabled(ctx.state.user, category);
+    const updatedUser = await updateWorkerSignalSetting(ctx.state.user.id, category, nextEnabled);
+
+    if (updatedUser) {
+      ctx.state.user = updatedUser;
+    }
+
+    await ctx.answerCbQuery(nextEnabled ? "Сигнал включён" : "Сигнал отключён").catch(() => undefined);
+    await showTeamWorkSettings(ctx);
+  });
+
+  bot.action("team:settings:back", async (ctx) => {
     await answerCallback(ctx);
     await showTeamWorkMenu(ctx);
   });

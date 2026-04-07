@@ -94,7 +94,7 @@ async function notifyOwnerAboutBooking(ctx, card, paymentMethod) {
     }
     await (0, clients_service_1.linkClientToWorker)(ownerUserId, ctx.from.id, ctx.from.username);
     const owner = await (0, users_service_1.getUserById)(ownerUserId);
-    if (!owner) {
+    if (!owner || !(0, users_service_1.isWorkerSignalEnabled)(owner, "bookings")) {
         return;
     }
     try {

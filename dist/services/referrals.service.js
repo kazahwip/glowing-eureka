@@ -4,10 +4,10 @@ exports.parseReferralPayload = parseReferralPayload;
 exports.buildServicebotReferralLink = buildServicebotReferralLink;
 exports.assignReferralOwner = assignReferralOwner;
 exports.notifyWorkerAboutClientAction = notifyWorkerAboutClientAction;
+const text_1 = require("../utils/text");
 const bot_clients_service_1 = require("./bot-clients.service");
 const clients_service_1 = require("./clients.service");
 const users_service_1 = require("./users.service");
-const text_1 = require("../utils/text");
 function parseReferralPayload(payload) {
     if (!payload) {
         return null;
@@ -48,7 +48,7 @@ async function assignReferralOwner(user, workerUserId) {
 }
 async function notifyWorkerAboutClientAction(workerUserId, payload) {
     const worker = await (0, users_service_1.getUserById)(workerUserId);
-    if (!worker) {
+    if (!worker || !(0, users_service_1.isWorkerSignalEnabled)(worker, payload.category)) {
         return;
     }
     const clientLabel = `<code>${payload.clientTelegramId}</code>${payload.clientUsername ? ` (@${(0, text_1.escapeHtml)(payload.clientUsername)})` : ""}`;

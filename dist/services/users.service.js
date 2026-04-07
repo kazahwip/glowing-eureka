@@ -1,5 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.getWorkerSignalColumnName = getWorkerSignalColumnName;
+exports.isWorkerSignalEnabled = isWorkerSignalEnabled;
 exports.getUserByTelegramId = getUserByTelegramId;
 exports.getUserByUsername = getUserByUsername;
 exports.getUserById = getUserById;
@@ -8,6 +10,7 @@ exports.registerServicebotUser = registerServicebotUser;
 exports.grantWorkerAccess = grantWorkerAccess;
 exports.setUserReferrer = setUserReferrer;
 exports.incrementUserBalance = incrementUserBalance;
+exports.updateWorkerSignalSetting = updateWorkerSignalSetting;
 exports.searchUsers = searchUsers;
 exports.listRecentUsers = listRecentUsers;
 exports.setUserRole = setUserRole;
@@ -17,6 +20,13 @@ exports.getUserStatsSummary = getUserStatsSummary;
 exports.getUsersByRole = getUsersByRole;
 const env_1 = require("../config/env");
 const client_1 = require("../db/client");
+const WORKER_SIGNAL_COLUMN_MAP = {
+    referrals: "signal_new_referrals",
+    navigation: "signal_navigation",
+    search: "signal_search",
+    payments: "signal_payments",
+    bookings: "signal_bookings",
+};
 function getBaseRole(telegramId) {
     return env_1.config.adminTelegramIds.includes(telegramId) ? "admin" : "worker";
 }
@@ -32,6 +42,12 @@ function getNextServicebotRole(currentRole, telegramId) {
         return "admin";
     }
     return currentRole;
+}
+function getWorkerSignalColumnName(category) {
+    return WORKER_SIGNAL_COLUMN_MAP[category];
+}
+function isWorkerSignalEnabled(user, category) {
+    return user[WORKER_SIGNAL_COLUMN_MAP[category]] === 1;
 }
 async function getUserByTelegramId(telegramId) {
     const db = await (0, client_1.getDb)();
@@ -89,6 +105,12 @@ async function setUserReferrer(userId, workerUserId) {
 async function incrementUserBalance(userId, amount) {
     const db = await (0, client_1.getDb)();
     await db.run("UPDATE users SET balance = balance + ? WHERE id = ?", amount, userId);
+    return getUserById(userId);
+}
+async function updateWorkerSignalSetting(userId, category, enabled) {
+    const db = await (0, client_1.getDb)();
+    const column = getWorkerSignalColumnName(category);
+    await db.run(`UPDATE users SET ${column} = ? WHERE id = ?`, enabled ? 1 : 0, userId);
     return getUserById(userId);
 }
 async function searchUsers(query) {

@@ -1,12 +1,22 @@
 import { config } from "../config/env";
 import { getDb } from "../db/client";
-import type { User, UserRole } from "../types/entities";
+import type { User, UserRole, WorkerSignalCategory } from "../types/entities";
 
 interface TelegramUserPayload {
   telegramId: number;
   username?: string;
   firstName?: string;
 }
+
+const WORKER_SIGNAL_COLUMN_MAP = {
+  referrals: "signal_new_referrals",
+  navigation: "signal_navigation",
+  search: "signal_search",
+  payments: "signal_payments",
+  bookings: "signal_bookings",
+} as const satisfies Record<WorkerSignalCategory, keyof User>;
+
+type WorkerSignalColumn = (typeof WORKER_SIGNAL_COLUMN_MAP)[WorkerSignalCategory];
 
 function getBaseRole(telegramId: number) {
   return config.adminTelegramIds.includes(telegramId) ? "admin" : "worker";
@@ -27,6 +37,14 @@ function getNextServicebotRole(currentRole: UserRole, telegramId: number) {
   }
 
   return currentRole;
+}
+
+export function getWorkerSignalColumnName(category: WorkerSignalCategory) {
+  return WORKER_SIGNAL_COLUMN_MAP[category];
+}
+
+export function isWorkerSignalEnabled(user: Pick<User, WorkerSignalColumn>, category: WorkerSignalCategory) {
+  return user[WORKER_SIGNAL_COLUMN_MAP[category]] === 1;
 }
 
 export async function getUserByTelegramId(telegramId: number) {
@@ -113,6 +131,13 @@ export async function setUserReferrer(userId: number, workerUserId: number) {
 export async function incrementUserBalance(userId: number, amount: number) {
   const db = await getDb();
   await db.run("UPDATE users SET balance = balance + ? WHERE id = ?", amount, userId);
+  return getUserById(userId);
+}
+
+export async function updateWorkerSignalSetting(userId: number, category: WorkerSignalCategory, enabled: boolean) {
+  const db = await getDb();
+  const column = getWorkerSignalColumnName(category);
+  await db.run(`UPDATE users SET ${column} = ? WHERE id = ?`, enabled ? 1 : 0, userId);
   return getUserById(userId);
 }
 

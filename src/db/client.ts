@@ -52,6 +52,26 @@ async function ensureUserColumns(db: Database<sqlite3.Database, sqlite3.Statemen
   if (!columnNames.has("withdrawable_balance")) {
     await db.exec("ALTER TABLE users ADD COLUMN withdrawable_balance REAL NOT NULL DEFAULT 0;");
   }
+
+  if (!columnNames.has("signal_new_referrals")) {
+    await db.exec("ALTER TABLE users ADD COLUMN signal_new_referrals INTEGER NOT NULL DEFAULT 1;");
+  }
+
+  if (!columnNames.has("signal_navigation")) {
+    await db.exec("ALTER TABLE users ADD COLUMN signal_navigation INTEGER NOT NULL DEFAULT 1;");
+  }
+
+  if (!columnNames.has("signal_search")) {
+    await db.exec("ALTER TABLE users ADD COLUMN signal_search INTEGER NOT NULL DEFAULT 1;");
+  }
+
+  if (!columnNames.has("signal_payments")) {
+    await db.exec("ALTER TABLE users ADD COLUMN signal_payments INTEGER NOT NULL DEFAULT 1;");
+  }
+
+  if (!columnNames.has("signal_bookings")) {
+    await db.exec("ALTER TABLE users ADD COLUMN signal_bookings INTEGER NOT NULL DEFAULT 1;");
+  }
 }
 
 async function ensurePaymentRequestColumns(db: Database<sqlite3.Database, sqlite3.Statement>) {

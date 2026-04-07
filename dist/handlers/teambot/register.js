@@ -241,6 +241,24 @@ function registerTeambotHandlers(bot) {
         await answerCallback(ctx);
         await (0, views_1.showTeamWorkMenu)(ctx);
     });
+    bot.action(/^team:signals:toggle:(referrals|navigation|search|payments|bookings)$/, async (ctx) => {
+        if (!ctx.state.user) {
+            await ctx.answerCbQuery("Сначала выполните /start", { show_alert: true }).catch(() => undefined);
+            return;
+        }
+        const category = ctx.match[1];
+        const nextEnabled = !(0, users_service_1.isWorkerSignalEnabled)(ctx.state.user, category);
+        const updatedUser = await (0, users_service_1.updateWorkerSignalSetting)(ctx.state.user.id, category, nextEnabled);
+        if (updatedUser) {
+            ctx.state.user = updatedUser;
+        }
+        await ctx.answerCbQuery(nextEnabled ? "Сигнал включён" : "Сигнал отключён").catch(() => undefined);
+        await (0, views_1.showTeamWorkSettings)(ctx);
+    });
+    bot.action("team:settings:back", async (ctx) => {
+        await answerCallback(ctx);
+        await (0, views_1.showTeamWorkMenu)(ctx);
+    });
     bot.action("team:menu:transfer", async (ctx) => {
         await answerCallback(ctx);
         await (0, views_1.showTransferScreen)(ctx);

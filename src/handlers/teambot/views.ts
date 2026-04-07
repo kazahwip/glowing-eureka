@@ -12,7 +12,7 @@ import {
   adminUserActionsKeyboard,
   adminUsersKeyboard,
 } from "../../keyboards/admin";
-import { curatorDirectoryKeyboard, teamWorkKeyboard, teambotBackKeyboard, teambotMainMenuInlineKeyboard } from "../../keyboards/teambot";
+import { curatorDirectoryKeyboard, teamWorkKeyboard, teambotBackKeyboard, teambotMainMenuInlineKeyboard, workerSignalSettingsKeyboard } from "../../keyboards/teambot";
 import { countCards, getCardWithOwner, listCardsByOwner, listRecentCardsForAdmin } from "../../services/cards.service";
 import { getWorkerClientsStats } from "../../services/clients.service";
 import { getCuratorById, getCuratorWithUser, listCurators } from "../../services/curators.service";
@@ -63,6 +63,20 @@ function buildCuratorsDirectoryText(currentCurator: Curator | null | undefined, 
   return lines.join("\n");
 }
 
+function buildSignalSettingsText() {
+  return [
+    "<b>⚙️ Настройки сигналов</b>",
+    "",
+    "Выберите, какие логи по мамонтам и действиям клиентов должны приходить вам в личные сообщения teambot.",
+    "",
+    "🐘 Новые мамонты — переходы по вашей рефке",
+    "🧭 Навигация по боту — открытие основных разделов",
+    "🔎 Города и анкеты — выбор разделов, городов и анкет",
+    "💳 Пополнения и оплата — переходы к оплате и пополнению",
+    "📅 Предзаказы — заявки по анкетам и бронированию",
+  ].join("\n");
+}
+
 export async function showTeambotHome(ctx: AppContext) {
   const cleanupMessage = await ctx.reply(".", Markup.removeKeyboard()).catch(() => null);
   if (cleanupMessage && "message_id" in cleanupMessage) {
@@ -93,19 +107,19 @@ export async function showTeamWorkMenu(ctx: AppContext) {
 }
 
 export async function showTeamWorkSettings(ctx: AppContext) {
-  await ctx.reply(
-    [
-      "<b>⚙️ Настройки воркера</b>",
-      "",
-      "Здесь собраны быстрые подсказки по рабочему разделу.",
-      "🔗 Моя рефка вынесена в отдельную кнопку, чтобы ссылку можно было быстро копировать и отправлять клиентам.",
-      "Все ключевые действия клиентов в Honey Bunny, пришедших по вашей ссылке, приходят вам в личные сообщения teambot.",
-    ].join("\n"),
-    {
-      parse_mode: "HTML",
-      ...teambotBackKeyboard(),
-    },
-  );
+  const user = ctx.state.user;
+  if (!user) {
+    await ctx.reply("Сначала выполните /start.");
+    return;
+  }
+
+  await sendScreen(ctx, {
+    botKind: "teambot",
+    banner: "bot.png",
+    text: buildSignalSettingsText(),
+    photoExtra: getPhotoExtra(workerSignalSettingsKeyboard(user)),
+    messageExtra: getMessageExtra(workerSignalSettingsKeyboard(user)),
+  });
 }
 
 export async function showWorkerReferralScreen(ctx: AppContext) {

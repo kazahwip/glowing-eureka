@@ -1,14 +1,15 @@
+import type { User, WorkerSignalCategory } from "../types/entities";
+import { escapeHtml } from "../utils/text";
 import { getTeambotTelegram } from "./bot-clients.service";
 import { linkClientToWorker } from "./clients.service";
-import { getUserById, setUserReferrer } from "./users.service";
-import type { User } from "../types/entities";
-import { escapeHtml } from "../utils/text";
+import { getUserById, isWorkerSignalEnabled, setUserReferrer } from "./users.service";
 
 export interface WorkerActionPayload {
   clientTelegramId: number;
   clientUsername?: string | null;
   action: string;
   details?: string;
+  category: WorkerSignalCategory;
 }
 
 export function parseReferralPayload(payload?: string | null) {
@@ -61,7 +62,7 @@ export async function assignReferralOwner(user: User, workerUserId: number) {
 
 export async function notifyWorkerAboutClientAction(workerUserId: number, payload: WorkerActionPayload) {
   const worker = await getUserById(workerUserId);
-  if (!worker) {
+  if (!worker || !isWorkerSignalEnabled(worker, payload.category)) {
     return;
   }
 

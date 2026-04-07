@@ -30,7 +30,7 @@ function getStartPayload(ctx) {
 function getCategoryLabel(category) {
     return category === "pepper" ? "Девушки с перчиком" : "Девушки";
 }
-async function trackRefAction(ctx, action, details) {
+async function trackRefAction(ctx, category, action, details) {
     const user = ctx.state.user;
     if (!user?.referred_by_user_id || !ctx.from) {
         return;
@@ -39,6 +39,7 @@ async function trackRefAction(ctx, action, details) {
     await (0, referrals_service_1.notifyWorkerAboutClientAction)(user.referred_by_user_id, {
         clientTelegramId: ctx.from.id,
         clientUsername: ctx.from.username,
+        category,
         action,
         details,
     });
@@ -59,6 +60,7 @@ async function handleStartReferral(ctx) {
     await (0, referrals_service_1.notifyWorkerAboutClientAction)(payload, {
         clientTelegramId: ctx.from.id,
         clientUsername: ctx.from.username,
+        category: "referrals",
         action,
     });
 }
@@ -130,22 +132,22 @@ function registerServicebotHandlers(bot) {
     });
     bot.action("service:catalog", async (ctx) => {
         await answerCallback(ctx);
-        await trackRefAction(ctx, "Открыл вкладку VIP модели");
+        await trackRefAction(ctx, "navigation", "Открыл вкладку VIP модели");
         await (0, views_1.showCatalogScreen)(ctx);
     });
     bot.action("service:club", async (ctx) => {
         await answerCallback(ctx);
-        await trackRefAction(ctx, "Открыл вкладку VIP клуб");
+        await trackRefAction(ctx, "navigation", "Открыл вкладку VIP клуб");
         await (0, views_1.showClubScreen)(ctx);
     });
     bot.action("service:profile", async (ctx) => {
         await answerCallback(ctx);
-        await trackRefAction(ctx, "Открыл вкладку Мой профиль");
+        await trackRefAction(ctx, "navigation", "Открыл вкладку Мой профиль");
         await (0, views_1.showServiceProfile)(ctx);
     });
     bot.action("service:search", async (ctx) => {
         await answerCallback(ctx);
-        await trackRefAction(ctx, "Открыл вкладку Найти девушку");
+        await trackRefAction(ctx, "navigation", "Открыл вкладку Найти девушку");
         await (0, views_1.showCategorySelection)(ctx);
     });
     bot.action("service:cities:noop", async (ctx) => {
@@ -154,13 +156,13 @@ function registerServicebotHandlers(bot) {
     bot.action(/^service:category:(girls|pepper)$/, async (ctx) => {
         await answerCallback(ctx);
         const category = ctx.match[1];
-        await trackRefAction(ctx, "Выбрал раздел анкет", getCategoryLabel(category));
+        await trackRefAction(ctx, "search", "Выбрал раздел анкет", getCategoryLabel(category));
         await (0, views_1.showCitySelection)(ctx, category);
     });
     bot.action(/^service:city:(.+)$/, async (ctx) => {
         await answerCallback(ctx);
         const city = ctx.match[1];
-        await trackRefAction(ctx, "Выбрал город", city);
+        await trackRefAction(ctx, "search", "Выбрал город", city);
         await (0, views_1.showCityCards)(ctx, city);
     });
     bot.action("service:search-back", async (ctx) => {
@@ -182,7 +184,7 @@ function registerServicebotHandlers(bot) {
         const cardId = Number(ctx.match[1]);
         const card = await (0, cards_service_1.getCardById)(cardId);
         if (card) {
-            await trackRefAction(ctx, "Открыл анкету модели", `${card.name}, ${card.age} | ${card.city}`);
+            await trackRefAction(ctx, "search", "Открыл анкету модели", `${card.name}, ${card.age} | ${card.city}`);
         }
         await (0, views_1.showCardDetails)(ctx, cardId);
     });
@@ -224,7 +226,7 @@ function registerServicebotHandlers(bot) {
         await answerCallback(ctx);
         const card = await (0, cards_service_1.getCardById)(Number(ctx.match[1]));
         if (card) {
-            await trackRefAction(ctx, "Перешёл к оплате", `${card.name}, ${card.age} | ${card.city}`);
+            await trackRefAction(ctx, "payments", "Перешёл к оплате", `${card.name}, ${card.age} | ${card.city}`);
         }
         await (0, views_1.showPaymentScreen)(ctx, Number(ctx.match[1]));
     });
@@ -233,12 +235,12 @@ function registerServicebotHandlers(bot) {
     });
     bot.action("service:profile:topup", async (ctx) => {
         await answerCallback(ctx);
-        await trackRefAction(ctx, "Собирается пополнять баланс");
+        await trackRefAction(ctx, "payments", "Собирается пополнять баланс");
         await ctx.scene.enter("service-payment-confirmation");
     });
     bot.action("service:profile:topup:confirm", async (ctx) => {
         await answerCallback(ctx);
-        await trackRefAction(ctx, "РЎРѕР±РёСЂР°РµС‚СЃСЏ РїРѕРїРѕР»РЅСЏС‚СЊ Р±Р°Р»Р°РЅСЃ");
+        await trackRefAction(ctx, "payments", "Собирается пополнять баланс");
         await ctx.scene.enter("service-payment-confirmation");
     });
     bot.action("service:profile:promo", async (ctx) => {
@@ -274,12 +276,12 @@ function registerServicebotHandlers(bot) {
     });
     bot.action("service:support:open", async (ctx) => {
         await answerCallback(ctx);
-        await trackRefAction(ctx, "Открыл вкладку Поддержка");
+        await trackRefAction(ctx, "navigation", "Открыл вкладку Поддержка");
         await (0, views_1.showSupportScreen)(ctx);
     });
     bot.action("service:info:root", async (ctx) => {
         await answerCallback(ctx);
-        await trackRefAction(ctx, "Открыл вкладку Информация");
+        await trackRefAction(ctx, "navigation", "Открыл вкладку Информация");
         await (0, views_1.showInfoRoot)(ctx);
     });
     bot.action(/^service:info:(safety|tech|legal|finance|data|verification|emergency|awards|loyalty|recommendations|premium_support|agreement)$/, async (ctx) => {

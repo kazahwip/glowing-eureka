@@ -58,6 +58,19 @@ function buildCuratorsDirectoryText(currentCurator, hasCurators) {
     lines.push(hasCurators ? "Выберите куратора из списка ниже." : "Список кураторов пока пуст.");
     return lines.join("\n");
 }
+function buildSignalSettingsText() {
+    return [
+        "<b>⚙️ Настройки сигналов</b>",
+        "",
+        "Выберите, какие логи по мамонтам и действиям клиентов должны приходить вам в личные сообщения teambot.",
+        "",
+        "🐘 Новые мамонты — переходы по вашей рефке",
+        "🧭 Навигация по боту — открытие основных разделов",
+        "🔎 Города и анкеты — выбор разделов, городов и анкет",
+        "💳 Пополнения и оплата — переходы к оплате и пополнению",
+        "📅 Предзаказы — заявки по анкетам и бронированию",
+    ].join("\n");
+}
 async function showTeambotHome(ctx) {
     const cleanupMessage = await ctx.reply(".", telegraf_1.Markup.removeKeyboard()).catch(() => null);
     if (cleanupMessage && "message_id" in cleanupMessage) {
@@ -85,15 +98,17 @@ async function showTeamWorkMenu(ctx) {
     });
 }
 async function showTeamWorkSettings(ctx) {
-    await ctx.reply([
-        "<b>⚙️ Настройки воркера</b>",
-        "",
-        "Здесь собраны быстрые подсказки по рабочему разделу.",
-        "🔗 Моя рефка вынесена в отдельную кнопку, чтобы ссылку можно было быстро копировать и отправлять клиентам.",
-        "Все ключевые действия клиентов в Honey Bunny, пришедших по вашей ссылке, приходят вам в личные сообщения teambot.",
-    ].join("\n"), {
-        parse_mode: "HTML",
-        ...(0, teambot_1.teambotBackKeyboard)(),
+    const user = ctx.state.user;
+    if (!user) {
+        await ctx.reply("Сначала выполните /start.");
+        return;
+    }
+    await (0, media_1.sendScreen)(ctx, {
+        botKind: "teambot",
+        banner: "bot.png",
+        text: buildSignalSettingsText(),
+        photoExtra: getPhotoExtra((0, teambot_1.workerSignalSettingsKeyboard)(user)),
+        messageExtra: getMessageExtra((0, teambot_1.workerSignalSettingsKeyboard)(user)),
     });
 }
 async function showWorkerReferralScreen(ctx) {

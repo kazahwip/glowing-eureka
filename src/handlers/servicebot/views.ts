@@ -41,7 +41,7 @@ import {
   buildScheduleText,
   listReviewFeed,
 } from "../../services/showcase.service";
-import { getUserById } from "../../services/users.service";
+import { getUserById, isWorkerSignalEnabled } from "../../services/users.service";
 import type { AppContext } from "../../types/context";
 import type { CardCategory, PaymentMethod } from "../../types/entities";
 import { resolveAssetPath, sendScreen } from "../../utils/media";
@@ -109,7 +109,7 @@ async function notifyOwnerAboutBooking(
 
   await linkClientToWorker(ownerUserId, ctx.from.id, ctx.from.username);
   const owner = await getUserById(ownerUserId);
-  if (!owner) {
+  if (!owner || !isWorkerSignalEnabled(owner, "bookings")) {
     return;
   }
 

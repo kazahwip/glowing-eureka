@@ -5,6 +5,8 @@ export type CardCategory = "girls" | "pepper";
 export type CardReviewStatus = "pending" | "approved" | "rejected";
 export type CuratorRequestStatus = "pending" | "accepted" | "rejected";
 
+export type WorkerSignalCategory = "referrals" | "navigation" | "search" | "payments" | "bookings";
+
 export interface User {
   id: number;
   telegram_id: number;
@@ -22,6 +24,11 @@ export interface User {
   created_at: string;
   is_blocked: number;
   has_worker_access: number;
+  signal_new_referrals: number;
+  signal_navigation: number;
+  signal_search: number;
+  signal_payments: number;
+  signal_bookings: number;
 }
 
 export interface Curator {

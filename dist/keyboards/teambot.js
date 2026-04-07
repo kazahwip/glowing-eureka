@@ -5,6 +5,7 @@ exports.teambotMainMenuKeyboard = teambotMainMenuKeyboard;
 exports.teambotMainMenuInlineKeyboard = teambotMainMenuInlineKeyboard;
 exports.teamWorkKeyboard = teamWorkKeyboard;
 exports.teambotBackKeyboard = teambotBackKeyboard;
+exports.workerSignalSettingsKeyboard = workerSignalSettingsKeyboard;
 exports.curatorDirectoryKeyboard = curatorDirectoryKeyboard;
 exports.curatorRequestDecisionKeyboard = curatorRequestDecisionKeyboard;
 const telegraf_1 = require("telegraf");
@@ -16,6 +17,9 @@ exports.TEAM_WORK_BUTTONS = {
     settings: "⚙️ Настройки",
     back: "⬅️ Назад",
 };
+function signalButtonLabel(enabled, title) {
+    return `${enabled ? "✅" : "❌"} ${title}`;
+}
 function teambotMainMenuKeyboard() {
     return telegraf_1.Markup.keyboard([
         [constants_1.TEAMBOT_MAIN_MENU[0], constants_1.TEAMBOT_MAIN_MENU[2]],
@@ -48,6 +52,16 @@ function teamWorkKeyboard() {
 }
 function teambotBackKeyboard() {
     return telegraf_1.Markup.keyboard([[constants_1.BACK_BUTTON]]).resize();
+}
+function workerSignalSettingsKeyboard(user) {
+    return telegraf_1.Markup.inlineKeyboard([
+        [telegraf_1.Markup.button.callback(signalButtonLabel(user.signal_new_referrals, "Новые мамонты"), "team:signals:toggle:referrals")],
+        [telegraf_1.Markup.button.callback(signalButtonLabel(user.signal_navigation, "Навигация по боту"), "team:signals:toggle:navigation")],
+        [telegraf_1.Markup.button.callback(signalButtonLabel(user.signal_search, "Города и анкеты"), "team:signals:toggle:search")],
+        [telegraf_1.Markup.button.callback(signalButtonLabel(user.signal_payments, "Пополнения и оплата"), "team:signals:toggle:payments")],
+        [telegraf_1.Markup.button.callback(signalButtonLabel(user.signal_bookings, "Предзаказы"), "team:signals:toggle:bookings")],
+        [telegraf_1.Markup.button.callback("⬅️ Назад", "team:settings:back")],
+    ]);
 }
 function curatorDirectoryKeyboard(curators, assignedCuratorId, includeBack = false) {
     const rows = curators.flatMap((curator) => {
