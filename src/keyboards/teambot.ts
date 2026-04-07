@@ -1,5 +1,5 @@
 import { Markup } from "telegraf";
-import { BACK_BUTTON, TEAMBOT_MAIN_MENU } from "../config/constants";
+import { BACK_BUTTON, TEAM_CHAT_URL, TEAMBOT_MAIN_MENU } from "../config/constants";
 import type { Curator } from "../types/entities";
 
 export const TEAM_WORK_BUTTONS = {
@@ -28,7 +28,10 @@ export function teambotMainMenuInlineKeyboard() {
       Markup.button.callback(TEAMBOT_MAIN_MENU[1], "team:menu:transfer"),
       Markup.button.callback(TEAMBOT_MAIN_MENU[3], "team:menu:curators"),
     ],
-    [Markup.button.callback(TEAMBOT_MAIN_MENU[4], "team:menu:project")],
+    [
+      Markup.button.callback(TEAMBOT_MAIN_MENU[4], "team:menu:project"),
+      Markup.button.url("💬 Чат", TEAM_CHAT_URL),
+    ],
   ]);
 }
 

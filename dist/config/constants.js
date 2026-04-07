@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.INFO_SECTIONS = exports.CARD_CATEGORIES = exports.AVAILABLE_CITIES = exports.REVIEWS_CHANNEL_URL = exports.SUPPORT_BOT_URL = exports.AGREEMENT_URL = exports.HOME_BUTTON = exports.DONE_BUTTON = exports.CANCEL_BUTTON = exports.BACK_BUTTON = exports.WORKER_PANEL_MENU = exports.SERVICEBOT_MAIN_MENU = exports.TEAM_WORK_MENU = exports.TEAMBOT_MAIN_MENU = void 0;
+exports.INFO_SECTIONS = exports.CARD_CATEGORIES = exports.AVAILABLE_CITIES = exports.TEAM_CHAT_URL = exports.REVIEWS_CHANNEL_URL = exports.SUPPORT_BOT_URL = exports.AGREEMENT_URL = exports.HOME_BUTTON = exports.DONE_BUTTON = exports.CANCEL_BUTTON = exports.BACK_BUTTON = exports.WORKER_PANEL_MENU = exports.SERVICEBOT_MAIN_MENU = exports.TEAM_WORK_MENU = exports.TEAMBOT_MAIN_MENU = void 0;
 exports.TEAMBOT_MAIN_MENU = [
     "💼 Бот для работы",
     "💳 Карта для переводов",
@@ -26,6 +26,7 @@ exports.HOME_BUTTON = "🏠 Главное меню";
 exports.AGREEMENT_URL = "https://telegra.ph/POLZOVATELSKOE-SOGLASHENIE-07-19-54";
 exports.SUPPORT_BOT_URL = "https://t.me/HoneySupportBunnyBot";
 exports.REVIEWS_CHANNEL_URL = "https://t.me/HoneyBunnyReviews";
+exports.TEAM_CHAT_URL = "https://t.me/+1O8aRGzPUVliMzVh";
 exports.AVAILABLE_CITIES = [
     "Москва",
     "Архангельск",

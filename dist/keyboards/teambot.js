@@ -33,7 +33,10 @@ function teambotMainMenuInlineKeyboard() {
             telegraf_1.Markup.button.callback(constants_1.TEAMBOT_MAIN_MENU[1], "team:menu:transfer"),
             telegraf_1.Markup.button.callback(constants_1.TEAMBOT_MAIN_MENU[3], "team:menu:curators"),
         ],
-        [telegraf_1.Markup.button.callback(constants_1.TEAMBOT_MAIN_MENU[4], "team:menu:project")],
+        [
+            telegraf_1.Markup.button.callback(constants_1.TEAMBOT_MAIN_MENU[4], "team:menu:project"),
+            telegraf_1.Markup.button.url("💬 Чат", constants_1.TEAM_CHAT_URL),
+        ],
     ]);
 }
 function teamWorkKeyboard() {
