@@ -3,12 +3,18 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.INFO_SECTIONS = exports.CARD_CATEGORIES = exports.AVAILABLE_CITIES = exports.TEAM_CHAT_URL = exports.REVIEWS_CHANNEL_URL = exports.SUPPORT_BOT_URL = exports.AGREEMENT_URL = exports.HOME_BUTTON = exports.DONE_BUTTON = exports.CANCEL_BUTTON = exports.BACK_BUTTON = exports.WORKER_PANEL_MENU = exports.SERVICEBOT_MAIN_MENU = exports.TEAM_WORK_MENU = exports.TEAMBOT_MAIN_MENU = void 0;
 exports.TEAMBOT_MAIN_MENU = [
     "💼 Бот для работы",
+    "💸 Заявка на вывод",
     "💳 Карта для переводов",
     "👤 Профиль",
     "🧑‍💼 Кураторы",
     "ℹ️ О проекте",
 ];
-exports.TEAM_WORK_MENU = ["📝 Создать карточку", "🔗 Моя рефка", "⚙️ Настройки", "⬅️ Назад"];
+exports.TEAM_WORK_MENU = [
+    "📝 Создать карточку",
+    "🔗 Моя рефка",
+    "⚙️ Настройки",
+    "⬅️ Назад",
+];
 exports.SERVICEBOT_MAIN_MENU = [
     "💘 VIP Модели",
     "🎩 VIP Клуб",

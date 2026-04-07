@@ -16,9 +16,9 @@ function signalButtonLabel(enabled: number, title: string) {
 
 export function teambotMainMenuKeyboard() {
   return Markup.keyboard([
-    [TEAMBOT_MAIN_MENU[0], TEAMBOT_MAIN_MENU[2]],
-    [TEAMBOT_MAIN_MENU[1], TEAMBOT_MAIN_MENU[3]],
-    [TEAMBOT_MAIN_MENU[4]],
+    [TEAMBOT_MAIN_MENU[0], TEAMBOT_MAIN_MENU[1]],
+    [TEAMBOT_MAIN_MENU[2], TEAMBOT_MAIN_MENU[3]],
+    [TEAMBOT_MAIN_MENU[4], TEAMBOT_MAIN_MENU[5]],
   ]).resize();
 }
 
@@ -26,23 +26,24 @@ export function teambotMainMenuInlineKeyboard() {
   return Markup.inlineKeyboard([
     [
       Markup.button.callback(TEAMBOT_MAIN_MENU[0], "team:menu:work"),
-      Markup.button.callback(TEAMBOT_MAIN_MENU[2], "team:menu:profile"),
+      Markup.button.callback(TEAMBOT_MAIN_MENU[1], "team:menu:withdraw"),
     ],
     [
-      Markup.button.callback(TEAMBOT_MAIN_MENU[1], "team:menu:transfer"),
-      Markup.button.callback(TEAMBOT_MAIN_MENU[3], "team:menu:curators"),
+      Markup.button.callback(TEAMBOT_MAIN_MENU[2], "team:menu:transfer"),
+      Markup.button.callback(TEAMBOT_MAIN_MENU[3], "team:menu:profile"),
     ],
     [
-      Markup.button.callback(TEAMBOT_MAIN_MENU[4], "team:menu:project"),
-      Markup.button.url("💬 Чат", TEAM_CHAT_URL),
+      Markup.button.callback(TEAMBOT_MAIN_MENU[4], "team:menu:curators"),
+      Markup.button.callback(TEAMBOT_MAIN_MENU[5], "team:menu:project"),
     ],
+    [Markup.button.url("💬 Чат", TEAM_CHAT_URL)],
   ]);
 }
 
 export function teamWorkKeyboard() {
   return Markup.keyboard([
     [TEAM_WORK_BUTTONS.createCard, TEAM_WORK_BUTTONS.referral],
-    [TEAM_WORK_BUTTONS.withdraw, TEAM_WORK_BUTTONS.settings],
+    [TEAM_WORK_BUTTONS.settings],
     [TEAM_WORK_BUTTONS.back],
   ]).resize();
 }

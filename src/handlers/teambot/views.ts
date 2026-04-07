@@ -99,7 +99,7 @@ export async function showTeamWorkMenu(ctx: AppContext) {
     text: [
       "<b>💼 Бот для работы</b>",
       "",
-      "Здесь можно создавать карточки, брать реферальную ссылку, смотреть баланс на вывод и открывать рабочие настройки.",
+      "Здесь можно создавать карточки, брать реферальную ссылку и открывать рабочие настройки.",
     ].join("\n"),
     photoExtra: getPhotoExtra(teamWorkKeyboard()),
     messageExtra: getMessageExtra(teamWorkKeyboard()),

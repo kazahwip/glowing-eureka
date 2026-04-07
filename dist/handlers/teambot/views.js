@@ -91,7 +91,7 @@ async function showTeamWorkMenu(ctx) {
         text: [
             "<b>💼 Бот для работы</b>",
             "",
-            "Здесь можно создавать карточки, брать реферальную ссылку, смотреть баланс на вывод и открывать рабочие настройки.",
+            "Здесь можно создавать карточки, брать реферальную ссылку и открывать рабочие настройки.",
         ].join("\n"),
         photoExtra: getPhotoExtra((0, teambot_1.teamWorkKeyboard)()),
         messageExtra: getMessageExtra((0, teambot_1.teamWorkKeyboard)()),

@@ -1,12 +1,18 @@
 export const TEAMBOT_MAIN_MENU = [
   "💼 Бот для работы",
+  "💸 Заявка на вывод",
   "💳 Карта для переводов",
   "👤 Профиль",
   "🧑‍💼 Кураторы",
   "ℹ️ О проекте",
 ] as const;
 
-export const TEAM_WORK_MENU = ["📝 Создать карточку", "🔗 Моя рефка", "⚙️ Настройки", "⬅️ Назад"] as const;
+export const TEAM_WORK_MENU = [
+  "📝 Создать карточку",
+  "🔗 Моя рефка",
+  "⚙️ Настройки",
+  "⬅️ Назад",
+] as const;
 
 export const SERVICEBOT_MAIN_MENU = [
   "💘 VIP Модели",

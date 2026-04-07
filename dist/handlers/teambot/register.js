@@ -227,10 +227,11 @@ function registerTeambotHandlers(bot) {
         await ctx.reply("📚 Канал с мануалами: https://t.me/+oIbWAAT7mIM3YzEx");
     });
     bot.hears(constants_1.TEAMBOT_MAIN_MENU[0], views_1.showTeamWorkMenu);
-    bot.hears(constants_1.TEAMBOT_MAIN_MENU[1], views_1.showTransferScreen);
-    bot.hears(constants_1.TEAMBOT_MAIN_MENU[2], views_1.showProfileScreen);
-    bot.hears(constants_1.TEAMBOT_MAIN_MENU[3], views_1.showCuratorsScreen);
-    bot.hears(constants_1.TEAMBOT_MAIN_MENU[4], views_1.showProjectInfoScreen);
+    bot.hears(constants_1.TEAMBOT_MAIN_MENU[1], views_1.showWithdrawRequestsScreen);
+    bot.hears(constants_1.TEAMBOT_MAIN_MENU[2], views_1.showTransferScreen);
+    bot.hears(constants_1.TEAMBOT_MAIN_MENU[3], views_1.showProfileScreen);
+    bot.hears(constants_1.TEAMBOT_MAIN_MENU[4], views_1.showCuratorsScreen);
+    bot.hears(constants_1.TEAMBOT_MAIN_MENU[5], views_1.showProjectInfoScreen);
     bot.hears(teambot_1.TEAM_WORK_BUTTONS.createCard, async (ctx) => ctx.scene.enter("team-create-card"));
     bot.hears(teambot_1.TEAM_WORK_BUTTONS.referral, views_1.showWorkerReferralScreen);
     bot.hears(teambot_1.TEAM_WORK_BUTTONS.withdraw, views_1.showWithdrawRequestsScreen);
@@ -240,6 +241,10 @@ function registerTeambotHandlers(bot) {
     bot.action("team:menu:work", async (ctx) => {
         await answerCallback(ctx);
         await (0, views_1.showTeamWorkMenu)(ctx);
+    });
+    bot.action("team:menu:withdraw", async (ctx) => {
+        await answerCallback(ctx);
+        await (0, views_1.showWithdrawRequestsScreen)(ctx);
     });
     bot.action(/^team:signals:toggle:(referrals|navigation|search|payments|bookings)$/, async (ctx) => {
         if (!ctx.state.user) {

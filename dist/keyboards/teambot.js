@@ -22,31 +22,32 @@ function signalButtonLabel(enabled, title) {
 }
 function teambotMainMenuKeyboard() {
     return telegraf_1.Markup.keyboard([
-        [constants_1.TEAMBOT_MAIN_MENU[0], constants_1.TEAMBOT_MAIN_MENU[2]],
-        [constants_1.TEAMBOT_MAIN_MENU[1], constants_1.TEAMBOT_MAIN_MENU[3]],
-        [constants_1.TEAMBOT_MAIN_MENU[4]],
+        [constants_1.TEAMBOT_MAIN_MENU[0], constants_1.TEAMBOT_MAIN_MENU[1]],
+        [constants_1.TEAMBOT_MAIN_MENU[2], constants_1.TEAMBOT_MAIN_MENU[3]],
+        [constants_1.TEAMBOT_MAIN_MENU[4], constants_1.TEAMBOT_MAIN_MENU[5]],
     ]).resize();
 }
 function teambotMainMenuInlineKeyboard() {
     return telegraf_1.Markup.inlineKeyboard([
         [
             telegraf_1.Markup.button.callback(constants_1.TEAMBOT_MAIN_MENU[0], "team:menu:work"),
-            telegraf_1.Markup.button.callback(constants_1.TEAMBOT_MAIN_MENU[2], "team:menu:profile"),
+            telegraf_1.Markup.button.callback(constants_1.TEAMBOT_MAIN_MENU[1], "team:menu:withdraw"),
         ],
         [
-            telegraf_1.Markup.button.callback(constants_1.TEAMBOT_MAIN_MENU[1], "team:menu:transfer"),
-            telegraf_1.Markup.button.callback(constants_1.TEAMBOT_MAIN_MENU[3], "team:menu:curators"),
+            telegraf_1.Markup.button.callback(constants_1.TEAMBOT_MAIN_MENU[2], "team:menu:transfer"),
+            telegraf_1.Markup.button.callback(constants_1.TEAMBOT_MAIN_MENU[3], "team:menu:profile"),
         ],
         [
-            telegraf_1.Markup.button.callback(constants_1.TEAMBOT_MAIN_MENU[4], "team:menu:project"),
-            telegraf_1.Markup.button.url("💬 Чат", constants_1.TEAM_CHAT_URL),
+            telegraf_1.Markup.button.callback(constants_1.TEAMBOT_MAIN_MENU[4], "team:menu:curators"),
+            telegraf_1.Markup.button.callback(constants_1.TEAMBOT_MAIN_MENU[5], "team:menu:project"),
         ],
+        [telegraf_1.Markup.button.url("💬 Чат", constants_1.TEAM_CHAT_URL)],
     ]);
 }
 function teamWorkKeyboard() {
     return telegraf_1.Markup.keyboard([
         [exports.TEAM_WORK_BUTTONS.createCard, exports.TEAM_WORK_BUTTONS.referral],
-        [exports.TEAM_WORK_BUTTONS.withdraw, exports.TEAM_WORK_BUTTONS.settings],
+        [exports.TEAM_WORK_BUTTONS.settings],
         [exports.TEAM_WORK_BUTTONS.back],
     ]).resize();
 }

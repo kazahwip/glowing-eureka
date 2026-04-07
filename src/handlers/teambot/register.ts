@@ -314,10 +314,11 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
   });
 
   bot.hears(TEAMBOT_MAIN_MENU[0], showTeamWorkMenu);
-  bot.hears(TEAMBOT_MAIN_MENU[1], showTransferScreen);
-  bot.hears(TEAMBOT_MAIN_MENU[2], showProfileScreen);
-  bot.hears(TEAMBOT_MAIN_MENU[3], showCuratorsScreen);
-  bot.hears(TEAMBOT_MAIN_MENU[4], showProjectInfoScreen);
+  bot.hears(TEAMBOT_MAIN_MENU[1], showWithdrawRequestsScreen);
+  bot.hears(TEAMBOT_MAIN_MENU[2], showTransferScreen);
+  bot.hears(TEAMBOT_MAIN_MENU[3], showProfileScreen);
+  bot.hears(TEAMBOT_MAIN_MENU[4], showCuratorsScreen);
+  bot.hears(TEAMBOT_MAIN_MENU[5], showProjectInfoScreen);
   bot.hears(TEAM_WORK_BUTTONS.createCard, async (ctx) => ctx.scene.enter("team-create-card"));
   bot.hears(TEAM_WORK_BUTTONS.referral, showWorkerReferralScreen);
   bot.hears(TEAM_WORK_BUTTONS.withdraw, showWithdrawRequestsScreen);
@@ -328,6 +329,11 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
   bot.action("team:menu:work", async (ctx) => {
     await answerCallback(ctx);
     await showTeamWorkMenu(ctx);
+  });
+
+  bot.action("team:menu:withdraw", async (ctx) => {
+    await answerCallback(ctx);
+    await showWithdrawRequestsScreen(ctx);
   });
 
   bot.action(/^team:signals:toggle:(referrals|navigation|search|payments|bookings)$/, async (ctx) => {
