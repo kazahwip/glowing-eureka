@@ -8,6 +8,10 @@ let databasePromise: Promise<Database<sqlite3.Database, sqlite3.Statement>> | nu
 
 const schemaPath = path.resolve(process.cwd(), "db/schema.sql");
 
+function roundMoney(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
 async function ensureCardColumns(db: Database<sqlite3.Database, sqlite3.Statement>) {
   const columns = await db.all<Array<{ name: string }>>("PRAGMA table_info(cards)");
   const columnNames = new Set(columns.map((column) => column.name));
@@ -44,6 +48,10 @@ async function ensureUserColumns(db: Database<sqlite3.Database, sqlite3.Statemen
   if (!columnNames.has("referred_by_user_id")) {
     await db.exec("ALTER TABLE users ADD COLUMN referred_by_user_id INTEGER NULL;");
   }
+
+  if (!columnNames.has("withdrawable_balance")) {
+    await db.exec("ALTER TABLE users ADD COLUMN withdrawable_balance REAL NOT NULL DEFAULT 0;");
+  }
 }
 
 async function ensurePaymentRequestColumns(db: Database<sqlite3.Database, sqlite3.Statement>) {
@@ -52,6 +60,18 @@ async function ensurePaymentRequestColumns(db: Database<sqlite3.Database, sqlite
 
   if (!columnNames.has("worker_user_id")) {
     await db.exec("ALTER TABLE payment_requests ADD COLUMN worker_user_id INTEGER NULL;");
+  }
+
+  if (!columnNames.has("worker_share_amount")) {
+    await db.exec("ALTER TABLE payment_requests ADD COLUMN worker_share_amount REAL NOT NULL DEFAULT 0;");
+  }
+
+  if (!columnNames.has("curator_user_id")) {
+    await db.exec("ALTER TABLE payment_requests ADD COLUMN curator_user_id INTEGER NULL;");
+  }
+
+  if (!columnNames.has("curator_share_amount")) {
+    await db.exec("ALTER TABLE payment_requests ADD COLUMN curator_share_amount REAL NOT NULL DEFAULT 0;");
   }
 }
 
@@ -99,6 +119,107 @@ async function ensureCuratorRequestTable(db: Database<sqlite3.Database, sqlite3.
   `);
 }
 
+async function syncPayoutData(db: Database<sqlite3.Database, sqlite3.Statement>) {
+  const approvedRequests = await db.all<
+    Array<{
+      id: number;
+      amount: number;
+      worker_user_id: number | null;
+      worker_share_amount: number;
+      curator_user_id: number | null;
+      curator_share_amount: number;
+    }>
+  >(
+    `SELECT
+      id,
+      amount,
+      worker_user_id,
+      worker_share_amount,
+      curator_user_id,
+      curator_share_amount
+     FROM payment_requests
+     WHERE status = 'approved'`,
+  );
+
+  for (const request of approvedRequests) {
+    let workerShareAmount = 0;
+    let curatorUserId: number | null = null;
+    let curatorShareAmount = 0;
+
+    if (request.worker_user_id) {
+      workerShareAmount = roundMoney(request.amount * 0.25);
+      const row = await db.get<{ curatorUserId: number | null }>(
+        `SELECT curators.linked_user_id AS curatorUserId
+         FROM users
+         LEFT JOIN curators ON curators.id = users.curator_id AND curators.is_active = 1
+         WHERE users.id = ?`,
+        request.worker_user_id,
+      );
+
+      curatorUserId = row?.curatorUserId ?? null;
+      if (curatorUserId) {
+        curatorShareAmount = roundMoney(request.amount * 0.1);
+      }
+    }
+
+    if (
+      request.worker_share_amount !== workerShareAmount ||
+      request.curator_user_id !== curatorUserId ||
+      request.curator_share_amount !== curatorShareAmount
+    ) {
+      await db.run(
+        `UPDATE payment_requests
+         SET worker_share_amount = ?, curator_user_id = ?, curator_share_amount = ?
+         WHERE id = ?`,
+        workerShareAmount,
+        curatorUserId,
+        curatorShareAmount,
+        request.id,
+      );
+    }
+  }
+
+  await db.run("UPDATE users SET withdrawable_balance = 0, total_profit = 0, avg_profit = 0, best_profit = 0");
+
+  const userProfitRows = await db.all<
+    Array<{
+      userId: number;
+      totalProfit: number;
+      avgProfit: number;
+      bestProfit: number;
+    }>
+  >(
+    `SELECT
+      user_id AS userId,
+      ROUND(COALESCE(SUM(share_amount), 0), 2) AS totalProfit,
+      ROUND(COALESCE(AVG(share_amount), 0), 2) AS avgProfit,
+      ROUND(COALESCE(MAX(share_amount), 0), 2) AS bestProfit
+     FROM (
+       SELECT worker_user_id AS user_id, worker_share_amount AS share_amount
+       FROM payment_requests
+       WHERE status = 'approved' AND worker_user_id IS NOT NULL AND worker_share_amount > 0
+       UNION ALL
+       SELECT curator_user_id AS user_id, curator_share_amount AS share_amount
+       FROM payment_requests
+       WHERE status = 'approved' AND curator_user_id IS NOT NULL AND curator_share_amount > 0
+     )
+     GROUP BY user_id`,
+  );
+
+  for (const row of userProfitRows) {
+    await db.run(
+      `UPDATE users
+       SET withdrawable_balance = ?, total_profit = ?, avg_profit = ?, best_profit = ?
+       WHERE id = ?`,
+      row.totalProfit,
+      row.totalProfit,
+      row.avgProfit,
+      row.bestProfit,
+      row.userId,
+    );
+  }
+}
+
 async function applySchema(db: Database<sqlite3.Database, sqlite3.Statement>) {
   const schema = fs.readFileSync(schemaPath, "utf8");
   await db.exec(schema);
@@ -107,6 +228,7 @@ async function applySchema(db: Database<sqlite3.Database, sqlite3.Statement>) {
   await ensurePaymentRequestColumns(db);
   await ensureCuratorColumns(db);
   await ensureCuratorRequestTable(db);
+  await syncPayoutData(db);
   await db.run("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", [
     "transfer_details",
     config.defaultTransferDetails,

@@ -63,7 +63,8 @@ function buildTeamProfileText(user, totalProfits = 0) {
         `💸 Сумма профитов: ${formatMoney(user.total_profit)}`,
         `📊 Средний профит: ${formatMoney(user.avg_profit)}`,
         `🏆 Рекордный профит: ${formatMoney(user.best_profit)}`,
-        `💼 Баланс: ${formatMoney(user.balance)}`,
+        `💼 Баланс teambot: ${formatMoney(user.withdrawable_balance)}`,
+        "🧮 Доля команды: 25%",
         `📌 Статус: ${getRoleTitle(user.role)}`,
         `🗓 В команде: ${(0, date_1.daysBetween)(user.created_at)} дн.`,
     ].join("\n");

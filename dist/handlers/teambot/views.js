@@ -6,6 +6,7 @@ exports.showTeamWorkSettings = showTeamWorkSettings;
 exports.showWorkerReferralScreen = showWorkerReferralScreen;
 exports.showTransferScreen = showTransferScreen;
 exports.showProfileScreen = showProfileScreen;
+exports.showWithdrawRequestsScreen = showWithdrawRequestsScreen;
 exports.showCuratorsScreen = showCuratorsScreen;
 exports.showCuratorsChatList = showCuratorsChatList;
 exports.showProjectInfoScreen = showProjectInfoScreen;
@@ -53,7 +54,7 @@ function buildCuratorsDirectoryText(currentCurator, hasCurators) {
     else {
         lines.push("У вас пока нет назначенного куратора.");
     }
-    lines.push("");
+    lines.push("", "Кураторы берут 10% от подтвержденной оплаты.", "");
     lines.push(hasCurators ? "Выберите куратора из списка ниже." : "Список кураторов пока пуст.");
     return lines.join("\n");
 }
@@ -74,7 +75,11 @@ async function showTeamWorkMenu(ctx) {
     await (0, media_1.sendScreen)(ctx, {
         botKind: "teambot",
         banner: "bot.png",
-        text: ["<b>💼 Бот для работы</b>", "", "Здесь можно создавать карточки, получать реферальную ссылку и открывать рабочие настройки."].join("\n"),
+        text: [
+            "<b>💼 Бот для работы</b>",
+            "",
+            "Здесь можно создавать карточки, брать реферальную ссылку, смотреть баланс на вывод и открывать рабочие настройки.",
+        ].join("\n"),
         photoExtra: getPhotoExtra((0, teambot_1.teamWorkKeyboard)()),
         messageExtra: getMessageExtra((0, teambot_1.teamWorkKeyboard)()),
     });
@@ -85,7 +90,7 @@ async function showTeamWorkSettings(ctx) {
         "",
         "Здесь собраны быстрые подсказки по рабочему разделу.",
         "🔗 Моя рефка вынесена в отдельную кнопку, чтобы ссылку можно было быстро копировать и отправлять клиентам.",
-        "Ключевые действия клиентов в Honey Bunny, пришедших по вашей ссылке, будут приходить вам в личные сообщения teambot.",
+        "Все ключевые действия клиентов в Honey Bunny, пришедших по вашей ссылке, приходят вам в личные сообщения teambot.",
     ].join("\n"), {
         parse_mode: "HTML",
         ...(0, teambot_1.teambotBackKeyboard)(),
@@ -138,6 +143,28 @@ async function showProfileScreen(ctx) {
         messageExtra: getMessageExtra((0, teambot_1.teambotBackKeyboard)()),
     });
 }
+async function showWithdrawRequestsScreen(ctx) {
+    const user = ctx.state.user;
+    if (!user) {
+        await ctx.reply("Сначала выполните /start.");
+        return;
+    }
+    const currentCurator = user.curator_id ? await (0, curators_service_1.getCuratorById)(user.curator_id) : null;
+    await ctx.reply([
+        "<b>💸 Заявка на вывод</b>",
+        "",
+        `Доступно для вывода: ${(0, text_1.formatMoney)(user.withdrawable_balance)}`,
+        "Доля воркера: 25% от подтвержденной оплаты.",
+        currentCurator
+            ? `Доля куратора ${(0, text_1.escapeHtml)(currentCurator.name)}: 10% от подтвержденной оплаты.`
+            : "Если будет назначен куратор, его доля составит 10%.",
+        "",
+        "Экран вывода подготовлен. Здесь отображается доступный баланс teambot.",
+    ].join("\n"), {
+        parse_mode: "HTML",
+        ...(0, teambot_1.teambotBackKeyboard)(),
+    });
+}
 async function showCuratorsScreen(ctx) {
     const user = ctx.state.user;
     const [currentCurator, curators] = await Promise.all([
@@ -162,6 +189,7 @@ async function showCuratorsChatList(ctx) {
     if (currentCurator) {
         lines.push("", `Текущий куратор: <b>${(0, text_1.escapeHtml)(currentCurator.name)}</b>`);
     }
+    lines.push("", "Кураторы берут 10% от подтвержденной оплаты.");
     lines.push("", curators.length ? "Откройте профиль куратора или отправьте заявку прямо из списка." : "Список кураторов пока пуст.");
     await ctx.reply(lines.join("\n"), {
         parse_mode: "HTML",
@@ -216,9 +244,7 @@ async function showRecentUsers(ctx) {
     }
     const keyboard = {
         inline_keyboard: [
-            ...users.map((user) => [
-                { text: `${user.id}. ${(0, text_1.formatUserLabel)(user)} (${user.telegram_id})`, callback_data: `admin:user:${user.id}:view` },
-            ]),
+            ...users.map((user) => [{ text: `${user.id}. ${(0, text_1.formatUserLabel)(user)} (${user.telegram_id})`, callback_data: `admin:user:${user.id}:view` }]),
             [{ text: "⬅️ Назад", callback_data: "admin:users" }],
         ],
     };
@@ -237,7 +263,8 @@ function buildAdminUserText(user, curatorName) {
         `Имя: ${user.first_name ? (0, text_1.escapeHtml)(user.first_name) : "не указано"}`,
         `Роль: ${(0, text_1.getRoleTitle)(user.role)}`,
         `Статус: ${user.is_blocked ? "⛔ Заблокирован" : "✅ Активен"}`,
-        `Баланс: ${(0, text_1.formatMoney)(user.balance)}`,
+        `Баланс Honey Bunny: ${(0, text_1.formatMoney)(user.balance)}`,
+        `Баланс teambot: ${(0, text_1.formatMoney)(user.withdrawable_balance)}`,
         `Профит: ${(0, text_1.formatMoney)(user.total_profit)}`,
         `Куратор: ${curatorName ? (0, text_1.escapeHtml)(curatorName) : "не назначен"}`,
         `Создан: ${(0, date_1.formatDateTime)(user.created_at)}`,

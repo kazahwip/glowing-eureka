@@ -62,7 +62,8 @@ export function buildTeamProfileText(user: User, totalProfits = 0) {
     `💸 Сумма профитов: ${formatMoney(user.total_profit)}`,
     `📊 Средний профит: ${formatMoney(user.avg_profit)}`,
     `🏆 Рекордный профит: ${formatMoney(user.best_profit)}`,
-    `💼 Баланс: ${formatMoney(user.balance)}`,
+    `💼 Баланс teambot: ${formatMoney(user.withdrawable_balance)}`,
+    "🧮 Доля команды: 25%",
     `📌 Статус: ${getRoleTitle(user.role)}`,
     `🗓 В команде: ${daysBetween(user.created_at)} дн.`,
   ].join("\n");
@@ -131,4 +132,3 @@ export function buildServiceProfileText(user: User) {
     `🗓 Дата регистрации: ${formatDate(user.created_at)}`,
   ].join("\n");
 }
-

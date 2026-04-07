@@ -23,15 +23,14 @@ import {
   servicebotMainMenuKeyboard,
   simpleInfoBackKeyboard,
   supportKeyboard,
-  topupConfirmationKeyboard,
   verificationInfoKeyboard,
   workerBackInlineKeyboard,
   workerPanelKeyboard,
 } from "../../keyboards/servicebot";
-import { countCompletedBookings, createBooking } from "../../services/bookings.service";
+import { countCompletedBookings, createBooking, createPaidBooking } from "../../services/bookings.service";
 import { getTeambotTelegram } from "../../services/bot-clients.service";
 import { getCardById, listCardsByCity, listRecentCards } from "../../services/cards.service";
-import { linkClientToWorker, getWorkerClientsStats, listWorkerClients, searchWorkerClients } from "../../services/clients.service";
+import { getWorkerClientsStats, linkClientToWorker, listWorkerClients, searchWorkerClients } from "../../services/clients.service";
 import { isFavorite, listFavoriteCards } from "../../services/favorites.service";
 import { materializeCardPhotoReferences, mediaInputFromReference } from "../../services/media.service";
 import { getTransferDetails } from "../../services/settings.service";
@@ -39,8 +38,6 @@ import {
   buildModelCardText,
   buildModelCertificateText,
   buildModelReviewsText,
-  buildPaymentText,
-  buildPrebookingText,
   buildScheduleText,
   listReviewFeed,
 } from "../../services/showcase.service";
@@ -122,7 +119,7 @@ async function notifyOwnerAboutBooking(
       [
         "<b>💸 Новый предзаказ</b>",
         `Модель: ${escapeHtml(card.name)}`,
-        `Мамонт: <code>${ctx.from.id}</code>${ctx.from.username ? ` (@${escapeHtml(ctx.from.username)})` : ""}`,
+        `Клиент: <code>${ctx.from.id}</code>${ctx.from.username ? ` (@${escapeHtml(ctx.from.username)})` : ""}`,
         `Оплата: ${paymentMethod === "cash" ? "Наличные" : "Баланс бота"}`,
       ].join("\n"),
       { parse_mode: "HTML" },
@@ -154,24 +151,27 @@ export async function showCatalogScreen(ctx: AppContext) {
   await sendScreen(ctx, {
     botKind: "servicebot",
     banner: "menu.jpg",
-    text: [
-      "<b>💘 VIP Модели</b>",
-      "",
-      "Выберите интересующий раздел:",
-      "💋 Девушки",
-      "🌶 Девушки с перчиком",
-    ].join("\n"),
+    text: ["<b>💘 VIP Модели</b>", "", "Выберите интересующий раздел:", "💋 Девушки", "🌶 Девушки с перчиком"].join("\n"),
     photoExtra: getPhotoExtra(modelCategoryKeyboard()),
     messageExtra: getMessageExtra(modelCategoryKeyboard()),
   });
 }
 
 export async function showClubScreen(ctx: AppContext) {
+  const markup = {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: "💎 Вступить в клуб", callback_data: "service:info:loyalty" }],
+        [{ text: "⬅️ Назад", callback_data: "service:home" }],
+      ],
+    },
+  };
+
   await sendScreen(ctx, {
     botKind: "servicebot",
     banner: "menu.jpg",
     text: [
-      "<b>🎩 VIP Клуб HoneyBunny</b>",
+      "<b>🎩 VIP Клуб Honey Bunny</b>",
       "",
       "Эксклюзивный доступ к закрытому сообществу.",
       "",
@@ -182,24 +182,10 @@ export async function showClubScreen(ctx: AppContext) {
       "• Закрытые мероприятия",
       "• Полная конфиденциальность",
       "",
-      "💎 <b>Стоимость:</b> 150,000₽/год",
+      "💎 <b>Стоимость:</b> 150,000 RUB / год",
     ].join("\n"),
-    photoExtra: {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: "💎 Вступить в клуб", callback_data: "service:info:loyalty" }],
-          [{ text: "⬅️ Назад", callback_data: "service:home" }],
-        ],
-      },
-    } as never,
-    messageExtra: {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: "💎 Вступить в клуб", callback_data: "service:info:loyalty" }],
-          [{ text: "⬅️ Назад", callback_data: "service:home" }],
-        ],
-      },
-    } as never,
+    photoExtra: markup as never,
+    messageExtra: markup as never,
   });
 }
 
@@ -214,8 +200,8 @@ export async function showServiceProfile(ctx: AppContext) {
     botKind: "servicebot",
     banner: "menu.jpg",
     text: buildServiceProfileText(user),
-    photoExtra: getPhotoExtra(topupConfirmationKeyboard()),
-    messageExtra: getMessageExtra(topupConfirmationKeyboard()),
+    photoExtra: getPhotoExtra(serviceProfileKeyboard()),
+    messageExtra: getMessageExtra(serviceProfileKeyboard()),
   });
 }
 
@@ -234,9 +220,14 @@ export async function showProfileTopupScreen(ctx: AppContext) {
   await sendScreen(ctx, {
     botKind: "servicebot",
     banner: "menu.jpg",
-    text: ["<b>💳 Пополнение баланса</b>", "", "Для перевода используйте реквизиты ниже:", escapeHtml(transferDetails)].join(
-      "\n",
-    ),
+    text: [
+      "<b>💳 Пополнение баланса</b>",
+      "",
+      "Введите сумму пополнения в следующем сообщении.",
+      "",
+      "Актуальные реквизиты:",
+      escapeHtml(transferDetails),
+    ].join("\n"),
     photoExtra: getPhotoExtra(serviceProfileKeyboard()),
     messageExtra: getMessageExtra(serviceProfileKeyboard()),
   });
@@ -268,14 +259,9 @@ export async function showCategorySelection(ctx: AppContext) {
   await sendScreen(ctx, {
     botKind: "servicebot",
     banner: "menu.jpg",
-    text: [
-      "<b>🔎 Выбор раздела</b>",
-      "",
-      "Шаг 1. Выберите интересующий раздел:",
-      "",
-      "💋 Девушки",
-      "🌶 Девушки с перчиком",
-    ].join("\n"),
+    text: ["<b>🔎 Выбор раздела</b>", "", "Шаг 1. Выберите интересующий раздел:", "", "💋 Девушки", "🌶 Девушки с перчиком"].join(
+      "\n",
+    ),
     photoExtra: getPhotoExtra(modelCategoryKeyboard()),
     messageExtra: getMessageExtra(modelCategoryKeyboard()),
   });
@@ -409,10 +395,23 @@ export async function showPrebookingScreen(ctx: AppContext, cardId: number) {
     return;
   }
 
-  await ctx.reply(buildPrebookingText(), {
-    parse_mode: "HTML",
-    ...prebookingKeyboard(cardId),
-  });
+  await ctx.reply(
+    [
+      "<b>📋 Предварительное бронирование</b>",
+      "",
+      `Модель: ${escapeHtml(card.name)}, ${card.age}`,
+      `Город: ${escapeHtml(card.city)}`,
+      "",
+      "🎁 Для фиксации предзаказа используется оплата из баланса бота.",
+      `💳 К оплате за слот 1 час: ${formatMoney(card.price_1h)}`,
+      "",
+      "После списания заявка сразу уходит воркеру на подтверждение.",
+    ].join("\n"),
+    {
+      parse_mode: "HTML",
+      ...prebookingKeyboard(cardId),
+    },
+  );
 }
 
 export async function showPaymentScreen(ctx: AppContext, cardId: number) {
@@ -429,10 +428,24 @@ export async function showPaymentScreen(ctx: AppContext, cardId: number) {
   }
 
   const cashAvailable = (await countCompletedBookings(user.id)) > 0;
-  await ctx.reply(buildPaymentText(cashAvailable), {
-    parse_mode: "HTML",
-    ...paymentKeyboard(cardId),
-  });
+  await ctx.reply(
+    [
+      "<b>💘 Выберите способ оплаты</b>",
+      "",
+      `Модель: ${escapeHtml(card.name)}, ${card.age}`,
+      `Слот: 1 час — ${formatMoney(card.price_1h)}`,
+      `Баланс бота: ${formatMoney(user.balance)}`,
+      "",
+      "💳 Баланс бота доступен сразу после подтвержденного пополнения.",
+      cashAvailable
+        ? "💵 Наличные уже доступны, потому что у вас есть успешная встреча."
+        : "💵 Наличные откроются после 1 успешной встречи.",
+    ].join("\n"),
+    {
+      parse_mode: "HTML",
+      ...paymentKeyboard(cardId),
+    },
+  );
 }
 
 export async function handlePaymentChoice(ctx: AppContext, cardId: number, paymentMethod: PaymentMethod) {
@@ -459,18 +472,64 @@ export async function handlePaymentChoice(ctx: AppContext, cardId: number, payme
     return;
   }
 
-  await createBooking(user.id, cardId, "Скидочный слот / демо-предзаказ", paymentMethod);
+  if (paymentMethod === "bot_balance") {
+    const result = await createPaidBooking(user.id, cardId, "Предзаказ / 1 час", card.price_1h);
+
+    if (result.status === "insufficient_balance") {
+      await ctx.answerCbQuery("Недостаточно средств").catch(() => undefined);
+      await ctx.reply(
+        [
+          "<b>❌ Недостаточно средств</b>",
+          "",
+          `Для предзаказа нужно: ${formatMoney(card.price_1h)}`,
+          `Сейчас на балансе: ${formatMoney(user.balance)}`,
+          "",
+          "Пополните баланс и отправьте чек на проверку администратору.",
+        ].join("\n"),
+        {
+          parse_mode: "HTML",
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "💳 Пополнить баланс", callback_data: "service:profile:topup" }],
+              [{ text: "⬅️ Назад к модели", callback_data: `service:card:${cardId}` }],
+            ],
+          },
+        },
+      );
+      return;
+    }
+
+    if (result.status === "missing_user") {
+      await ctx.reply("Сначала выполните /start.");
+      return;
+    }
+
+    await notifyOwnerAboutBooking(ctx, card, paymentMethod);
+    await ctx.answerCbQuery("✅ Оплата списана").catch(() => undefined);
+    await ctx.reply(
+      [
+        "<b>✅ Предзаказ оформлен</b>",
+        `Модель: ${escapeHtml(card.name)}`,
+        `Списано с баланса: ${formatMoney(card.price_1h)}`,
+        "Заявка передана воркеру и зафиксирована в системе.",
+      ].join("\n"),
+      {
+        parse_mode: "HTML",
+        ...modelInfoBackKeyboard(cardId),
+      },
+    );
+    return;
+  }
+
+  await createBooking(user.id, cardId, "Предзаказ / наличные", paymentMethod);
   await notifyOwnerAboutBooking(ctx, card, paymentMethod);
   await ctx.answerCbQuery("✅ Предзаказ оформлен").catch(() => undefined);
-
   await ctx.reply(
     [
       "<b>✅ Предзаказ оформлен</b>",
       `Модель: ${escapeHtml(card.name)}`,
-      `Оплата: ${paymentMethod === "cash" ? "Наличные" : "Баланс бота"}`,
-      paymentMethod === "bot_balance"
-        ? "Теперь для следующих заявок вам доступна оплата наличными."
-        : "Слот зафиксирован и отправлен на подтверждение менеджеру.",
+      "Оплата: наличные",
+      "Слот зафиксирован и отправлен воркеру на подтверждение.",
     ].join("\n"),
     {
       parse_mode: "HTML",
@@ -522,9 +581,10 @@ export async function showSupportScreen(ctx: AppContext) {
     text: [
       "<b>💬 Поддержка</b>",
       "",
-      "Если нужен оператор или помощь по заказу, создайте обращение. Заявка сохранится в БД, а администратор получит уведомление.",
+      "Если нужен оператор или помощь по заказу, создайте обращение.",
+      "Заявка сохранится в базе, а администратор получит уведомление.",
       "",
-      "Мы отвечаем быстро и сопровождаем обращение до результата.",
+      "Мы сопровождаем обращение до результата.",
     ].join("\n"),
     photoExtra: getPhotoExtra(supportKeyboard()),
     messageExtra: getMessageExtra(supportKeyboard()),
@@ -556,11 +616,7 @@ export async function showInfoSection(ctx: AppContext, key: ServiceInfoKey) {
 
 export async function showWorkerHome(ctx: AppContext) {
   await ctx.reply(
-    [
-      "<b>💼 Воркер-панель</b>",
-      "",
-      "Доступны рассылка по мамонтам, список мамонтов и добавление анкеты.",
-    ].join("\n"),
+    ["<b>💼 Воркер-панель</b>", "", "Доступны рассылка по мамонтам, список мамонтов и добавление анкеты."].join("\n"),
     {
       parse_mode: "HTML",
       ...workerPanelKeyboard(),

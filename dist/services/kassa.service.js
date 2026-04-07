@@ -62,7 +62,7 @@ async function getTopWorkers(period, limit = 5) {
       users.telegram_id,
       users.username,
       users.first_name,
-      COALESCE(SUM(payment_requests.amount), 0) AS totalAmount,
+      ROUND(COALESCE(SUM(payment_requests.worker_share_amount), 0), 2) AS totalAmount,
       COUNT(payment_requests.id) AS totalCount
      FROM payment_requests
      JOIN users ON users.id = payment_requests.worker_user_id
@@ -75,11 +75,18 @@ async function getWorkerProfitMetrics(workerUserId) {
     const db = await (0, client_1.getDb)();
     const row = await db.get(`SELECT
       COUNT(*) AS totalCount,
-      COALESCE(SUM(amount), 0) AS totalAmount,
-      COALESCE(AVG(amount), 0) AS avgAmount,
-      COALESCE(MAX(amount), 0) AS bestAmount
-     FROM payment_requests
-     WHERE worker_user_id = ? AND status = 'approved'`, workerUserId);
+      ROUND(COALESCE(SUM(share_amount), 0), 2) AS totalAmount,
+      ROUND(COALESCE(AVG(share_amount), 0), 2) AS avgAmount,
+      ROUND(COALESCE(MAX(share_amount), 0), 2) AS bestAmount
+     FROM (
+       SELECT worker_share_amount AS share_amount
+       FROM payment_requests
+       WHERE worker_user_id = ? AND status = 'approved' AND worker_share_amount > 0
+       UNION ALL
+       SELECT curator_share_amount AS share_amount
+       FROM payment_requests
+       WHERE curator_user_id = ? AND status = 'approved' AND curator_share_amount > 0
+     )`, workerUserId, workerUserId);
     return {
         totalCount: row?.totalCount ?? 0,
         totalAmount: row?.totalAmount ?? 0,

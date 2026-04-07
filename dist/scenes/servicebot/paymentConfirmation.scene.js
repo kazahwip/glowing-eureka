@@ -4,14 +4,23 @@ exports.paymentConfirmationScene = void 0;
 const telegraf_1 = require("telegraf");
 const constants_1 = require("../../config/constants");
 const env_1 = require("../../config/env");
+const views_1 = require("../../handlers/servicebot/views");
 const admin_1 = require("../../keyboards/admin");
 const bot_clients_service_1 = require("../../services/bot-clients.service");
-const payment_requests_service_1 = require("../../services/payment-requests.service");
 const media_service_1 = require("../../services/media.service");
+const payment_requests_service_1 = require("../../services/payment-requests.service");
+const settings_service_1 = require("../../services/settings.service");
 const text_1 = require("../../utils/text");
 const validators_1 = require("../../utils/validators");
-const views_1 = require("../../handlers/servicebot/views");
+const PAID_BUTTON = "✅ Я перевел";
 const cancelKeyboard = telegraf_1.Markup.keyboard([[constants_1.CANCEL_BUTTON]]).resize();
+const paidKeyboard = telegraf_1.Markup.keyboard([[PAID_BUTTON], [constants_1.CANCEL_BUTTON]]).resize();
+async function closeSceneToProfile(ctx, notice) {
+    ctx.session.paymentRequestDraft = undefined;
+    await ctx.scene.leave();
+    await ctx.reply(notice ?? "\u2063", telegraf_1.Markup.removeKeyboard());
+    await (0, views_1.showServiceProfile)(ctx);
+}
 async function notifyAdminsAboutPaymentRequest(ctx, requestId, amount, receiptReference, comment) {
     if (!ctx.from || !ctx.state.user) {
         return;
@@ -20,7 +29,7 @@ async function notifyAdminsAboutPaymentRequest(ctx, requestId, amount, receiptRe
     const caption = [
         "<b>💳 Новая заявка на проверку оплаты</b>",
         `Заявка: #${requestId}`,
-        `Мамонт: <code>${ctx.from.id}</code>${ctx.from.username ? ` (@${(0, text_1.escapeHtml)(ctx.from.username)})` : ""}`,
+        `Клиент: <code>${ctx.from.id}</code>${ctx.from.username ? ` (@${(0, text_1.escapeHtml)(ctx.from.username)})` : ""}`,
         `Сумма: ${(0, text_1.formatMoney)(amount)}`,
         comment ? `Комментарий: ${(0, text_1.escapeHtml)(comment)}` : undefined,
     ]
@@ -50,31 +59,54 @@ async function notifyAdminsAboutPaymentRequest(ctx, requestId, amount, receiptRe
 }
 exports.paymentConfirmationScene = new telegraf_1.Scenes.WizardScene("service-payment-confirmation", async (ctx) => {
     ctx.session.paymentRequestDraft = {};
-    await ctx.reply("Введите сумму перевода одним сообщением.", cancelKeyboard);
+    await ctx.reply("Введите сумму пополнения одним сообщением.", cancelKeyboard);
     return ctx.wizard.next();
 }, async (ctx) => {
-    if (ctx.message && "text" in ctx.message) {
-        if (ctx.message.text === constants_1.CANCEL_BUTTON) {
-            ctx.session.paymentRequestDraft = undefined;
-            await ctx.scene.leave();
-            await (0, views_1.showProfileTopupScreen)(ctx);
-            return;
-        }
-        const amount = (0, validators_1.parsePositiveNumber)(ctx.message.text);
-        if (!amount) {
-            await ctx.reply("Введите корректную сумму перевода числом.");
-            return;
-        }
-        ctx.session.paymentRequestDraft = { amount };
-        await ctx.reply("Отправьте скриншот или фото чека перевода. При необходимости добавьте комментарий в подпись.", cancelKeyboard);
-        return ctx.wizard.next();
+    if (!ctx.message || !("text" in ctx.message)) {
+        await ctx.reply("Введите сумму пополнения текстом.");
+        return;
     }
-    await ctx.reply("Введите сумму перевода текстом.");
+    if (ctx.message.text === constants_1.CANCEL_BUTTON) {
+        await closeSceneToProfile(ctx, "Пополнение отменено.");
+        return;
+    }
+    const amount = (0, validators_1.parsePositiveNumber)(ctx.message.text);
+    if (!amount) {
+        await ctx.reply("Введите корректную сумму пополнения числом.");
+        return;
+    }
+    ctx.session.paymentRequestDraft = { amount };
+    const transferDetails = await (0, settings_service_1.getTransferDetails)();
+    await ctx.reply([
+        "<b>💳 Реквизиты для перевода</b>",
+        "",
+        `Сумма: ${(0, text_1.formatMoney)(amount)}`,
+        (0, text_1.escapeHtml)(transferDetails),
+        "",
+        "После перевода нажмите «Я перевел».",
+    ].join("\n"), {
+        parse_mode: "HTML",
+        ...paidKeyboard,
+    });
+    return ctx.wizard.next();
+}, async (ctx) => {
+    if (!ctx.message || !("text" in ctx.message)) {
+        await ctx.reply("Нажмите «Я перевел» или отмените пополнение.", paidKeyboard);
+        return;
+    }
+    if (ctx.message.text === constants_1.CANCEL_BUTTON) {
+        await closeSceneToProfile(ctx, "Пополнение отменено.");
+        return;
+    }
+    if (ctx.message.text !== PAID_BUTTON) {
+        await ctx.reply("Используйте кнопку «Я перевел», когда перевод будет отправлен.", paidKeyboard);
+        return;
+    }
+    await ctx.reply("Отправьте скриншот или фото чека перевода. При необходимости добавьте комментарий в подпись.", cancelKeyboard);
+    return ctx.wizard.next();
 }, async (ctx) => {
     if (ctx.message && "text" in ctx.message && ctx.message.text === constants_1.CANCEL_BUTTON) {
-        ctx.session.paymentRequestDraft = undefined;
-        await ctx.scene.leave();
-        await (0, views_1.showProfileTopupScreen)(ctx);
+        await closeSceneToProfile(ctx, "Пополнение отменено.");
         return;
     }
     if (!ctx.message || !("photo" in ctx.message)) {
@@ -85,10 +117,7 @@ exports.paymentConfirmationScene = new telegraf_1.Scenes.WizardScene("service-pa
     const amount = ctx.session.paymentRequestDraft?.amount;
     const photoId = ctx.message.photo.at(-1)?.file_id;
     if (!user || !amount || !photoId) {
-        ctx.session.paymentRequestDraft = undefined;
-        await ctx.scene.leave();
-        await ctx.reply("Не удалось сохранить заявку. Попробуйте ещё раз.");
-        await (0, views_1.showProfileTopupScreen)(ctx);
+        await closeSceneToProfile(ctx, "Не удалось сохранить заявку. Попробуйте еще раз.");
         return;
     }
     const [receiptReference] = await (0, media_service_1.persistTelegramPhotoReferences)(ctx.telegram, [photoId], `payments/${user.id}`);
@@ -97,8 +126,5 @@ exports.paymentConfirmationScene = new telegraf_1.Scenes.WizardScene("service-pa
     if (request) {
         await notifyAdminsAboutPaymentRequest(ctx, request.id, amount, receiptReference, comment);
     }
-    ctx.session.paymentRequestDraft = undefined;
-    await ctx.scene.leave();
-    await ctx.reply("Заявка на проверку оплаты отправлена администратору. После проверки баланс будет обновлён вручную.");
-    await (0, views_1.showProfileTopupScreen)(ctx);
+    await closeSceneToProfile(ctx, "Заявка на проверку оплаты отправлена администратору. После подтверждения баланс обновится автоматически.");
 });

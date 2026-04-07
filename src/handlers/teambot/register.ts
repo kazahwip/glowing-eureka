@@ -1,7 +1,7 @@
 import type { Telegraf } from "telegraf";
 import { adminRoleKeyboard } from "../../keyboards/admin";
-import { curatorRequestDecisionKeyboard } from "../../keyboards/teambot";
-import { BACK_BUTTON, TEAMBOT_MAIN_MENU, TEAM_WORK_MENU } from "../../config/constants";
+import { curatorRequestDecisionKeyboard, TEAM_WORK_BUTTONS } from "../../keyboards/teambot";
+import { BACK_BUTTON, TEAMBOT_MAIN_MENU } from "../../config/constants";
 import { getServicebotTelegram, getTeambotTelegram } from "../../services/bot-clients.service";
 import { notifyWorkerAboutCardReviewDecision } from "../../services/card-review.service";
 import { approveCard, deleteCard, rejectCard } from "../../services/cards.service";
@@ -46,6 +46,7 @@ import {
   showTeamWorkMenu,
   showTeamWorkSettings,
   showTransferScreen,
+  showWithdrawRequestsScreen,
   showWorkerReferralScreen,
 } from "./views";
 
@@ -195,6 +196,32 @@ async function buildKassaText() {
   ].join("\n");
 }
 
+async function notifyWorkerChatAboutProfitFormatted(request: PaymentRequestWithUser) {
+  const workerChatId = await getWorkerChatId();
+  if (!workerChatId) {
+    return;
+  }
+
+  const worker = request.worker_user_id ? await getUserById(request.worker_user_id) : null;
+  const curator = request.curator_user_id ? await getUserById(request.curator_user_id) : null;
+  const workerLabel = worker ? escapeHtml(formatUserLabel(worker)) : "не назначен";
+
+  const lines = [
+    "<b>🔥 Payments</b>",
+    `🐺 Профит у ${workerLabel}`,
+    "├ Сервис: 🤖 Honey Bunny",
+    `├ Сумма оплаты: ${formatMoney(request.amount)}`,
+    `├ Доля воркера: ${formatMoney(request.worker_share_amount)}`,
+    curator ? `└ Доля куратора (${escapeHtml(formatUserLabel(curator))}): ${formatMoney(request.curator_share_amount)}` : "└ Доля куратора: 0 RUB",
+  ];
+
+  try {
+    await getTeambotTelegram().sendMessage(workerChatId, lines.join("\n"), { parse_mode: "HTML" });
+  } catch {
+    // ignore delivery errors
+  }
+}
+
 async function notifyWorkerChatAboutProfit(request: PaymentRequestWithUser) {
   const workerChatId = await getWorkerChatId();
   if (!workerChatId) {
@@ -291,9 +318,11 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
   bot.hears(TEAMBOT_MAIN_MENU[2], showProfileScreen);
   bot.hears(TEAMBOT_MAIN_MENU[3], showCuratorsScreen);
   bot.hears(TEAMBOT_MAIN_MENU[4], showProjectInfoScreen);
-  bot.hears(TEAM_WORK_MENU[0], async (ctx) => ctx.scene.enter("team-create-card"));
-  bot.hears(TEAM_WORK_MENU[1], showWorkerReferralScreen);
-  bot.hears(TEAM_WORK_MENU[2], showTeamWorkSettings);
+  bot.hears(TEAM_WORK_BUTTONS.createCard, async (ctx) => ctx.scene.enter("team-create-card"));
+  bot.hears(TEAM_WORK_BUTTONS.referral, showWorkerReferralScreen);
+  bot.hears(TEAM_WORK_BUTTONS.withdraw, showWithdrawRequestsScreen);
+  bot.hears(TEAM_WORK_BUTTONS.settings, showTeamWorkSettings);
+  bot.hears(TEAM_WORK_BUTTONS.back, showTeambotHome);
   bot.hears(BACK_BUTTON, showTeambotHome);
 
   bot.action("team:menu:work", async (ctx) => {
@@ -806,7 +835,7 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
           "Проверьте профиль в Honey Bunny.",
         ].join("\n"),
       );
-      await notifyWorkerChatAboutProfit(result.request);
+      await notifyWorkerChatAboutProfitFormatted(result.request);
       await ctx.reply(`Заявка #${requestId} принята. Баланс клиента пополнен.`);
     }
 

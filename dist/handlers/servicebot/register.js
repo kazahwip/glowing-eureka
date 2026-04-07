@@ -234,10 +234,11 @@ function registerServicebotHandlers(bot) {
     bot.action("service:profile:topup", async (ctx) => {
         await answerCallback(ctx);
         await trackRefAction(ctx, "Собирается пополнять баланс");
-        await (0, views_1.showProfileTopupScreen)(ctx);
+        await ctx.scene.enter("service-payment-confirmation");
     });
     bot.action("service:profile:topup:confirm", async (ctx) => {
         await answerCallback(ctx);
+        await trackRefAction(ctx, "РЎРѕР±РёСЂР°РµС‚СЃСЏ РїРѕРїРѕР»РЅСЏС‚СЊ Р±Р°Р»Р°РЅСЃ");
         await ctx.scene.enter("service-payment-confirmation");
     });
     bot.action("service:profile:promo", async (ctx) => {

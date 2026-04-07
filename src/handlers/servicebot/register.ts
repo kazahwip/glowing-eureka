@@ -24,7 +24,6 @@ import {
   showPaymentScreen,
   showPrebookingScreen,
   showProfilePlaceholder,
-  showProfileTopupScreen,
   showReviewsPage,
   showServiceProfile,
   showServicebotHome,
@@ -310,11 +309,12 @@ export function registerServicebotHandlers(bot: Telegraf<AppContext>) {
   bot.action("service:profile:topup", async (ctx) => {
     await answerCallback(ctx);
     await trackRefAction(ctx, "Собирается пополнять баланс");
-    await showProfileTopupScreen(ctx);
+    await ctx.scene.enter("service-payment-confirmation");
   });
 
   bot.action("service:profile:topup:confirm", async (ctx) => {
     await answerCallback(ctx);
+    await trackRefAction(ctx, "РЎРѕР±РёСЂР°РµС‚СЃСЏ РїРѕРїРѕР»РЅСЏС‚СЊ Р±Р°Р»Р°РЅСЃ");
     await ctx.scene.enter("service-payment-confirmation");
   });
 

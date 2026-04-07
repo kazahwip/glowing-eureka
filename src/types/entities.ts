@@ -15,6 +15,7 @@ export interface User {
   curator_id: number | null;
   referred_by_user_id: number | null;
   balance: number;
+  withdrawable_balance: number;
   total_profit: number;
   avg_profit: number;
   best_profit: number;
@@ -118,6 +119,9 @@ export interface PaymentRequest {
   id: number;
   user_id: number;
   worker_user_id: number | null;
+  worker_share_amount: number;
+  curator_user_id: number | null;
+  curator_share_amount: number;
   amount: number;
   receipt_file_id: string;
   comment: string | null;

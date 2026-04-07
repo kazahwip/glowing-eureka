@@ -101,7 +101,7 @@ async function notifyOwnerAboutBooking(ctx, card, paymentMethod) {
         await (0, bot_clients_service_1.getTeambotTelegram)().sendMessage(owner.telegram_id, [
             "<b>💸 Новый предзаказ</b>",
             `Модель: ${(0, text_1.escapeHtml)(card.name)}`,
-            `Мамонт: <code>${ctx.from.id}</code>${ctx.from.username ? ` (@${(0, text_1.escapeHtml)(ctx.from.username)})` : ""}`,
+            `Клиент: <code>${ctx.from.id}</code>${ctx.from.username ? ` (@${(0, text_1.escapeHtml)(ctx.from.username)})` : ""}`,
             `Оплата: ${paymentMethod === "cash" ? "Наличные" : "Баланс бота"}`,
         ].join("\n"), { parse_mode: "HTML" });
     }
@@ -126,23 +126,25 @@ async function showCatalogScreen(ctx) {
     await (0, media_1.sendScreen)(ctx, {
         botKind: "servicebot",
         banner: "menu.jpg",
-        text: [
-            "<b>💘 VIP Модели</b>",
-            "",
-            "Выберите интересующий раздел:",
-            "💋 Девушки",
-            "🌶 Девушки с перчиком",
-        ].join("\n"),
+        text: ["<b>💘 VIP Модели</b>", "", "Выберите интересующий раздел:", "💋 Девушки", "🌶 Девушки с перчиком"].join("\n"),
         photoExtra: getPhotoExtra((0, servicebot_1.modelCategoryKeyboard)()),
         messageExtra: getMessageExtra((0, servicebot_1.modelCategoryKeyboard)()),
     });
 }
 async function showClubScreen(ctx) {
+    const markup = {
+        reply_markup: {
+            inline_keyboard: [
+                [{ text: "💎 Вступить в клуб", callback_data: "service:info:loyalty" }],
+                [{ text: "⬅️ Назад", callback_data: "service:home" }],
+            ],
+        },
+    };
     await (0, media_1.sendScreen)(ctx, {
         botKind: "servicebot",
         banner: "menu.jpg",
         text: [
-            "<b>🎩 VIP Клуб HoneyBunny</b>",
+            "<b>🎩 VIP Клуб Honey Bunny</b>",
             "",
             "Эксклюзивный доступ к закрытому сообществу.",
             "",
@@ -153,24 +155,10 @@ async function showClubScreen(ctx) {
             "• Закрытые мероприятия",
             "• Полная конфиденциальность",
             "",
-            "💎 <b>Стоимость:</b> 150,000₽/год",
+            "💎 <b>Стоимость:</b> 150,000 RUB / год",
         ].join("\n"),
-        photoExtra: {
-            reply_markup: {
-                inline_keyboard: [
-                    [{ text: "💎 Вступить в клуб", callback_data: "service:info:loyalty" }],
-                    [{ text: "⬅️ Назад", callback_data: "service:home" }],
-                ],
-            },
-        },
-        messageExtra: {
-            reply_markup: {
-                inline_keyboard: [
-                    [{ text: "💎 Вступить в клуб", callback_data: "service:info:loyalty" }],
-                    [{ text: "⬅️ Назад", callback_data: "service:home" }],
-                ],
-            },
-        },
+        photoExtra: markup,
+        messageExtra: markup,
     });
 }
 async function showServiceProfile(ctx) {
@@ -183,8 +171,8 @@ async function showServiceProfile(ctx) {
         botKind: "servicebot",
         banner: "menu.jpg",
         text: (0, text_1.buildServiceProfileText)(user),
-        photoExtra: getPhotoExtra((0, servicebot_1.topupConfirmationKeyboard)()),
-        messageExtra: getMessageExtra((0, servicebot_1.topupConfirmationKeyboard)()),
+        photoExtra: getPhotoExtra((0, servicebot_1.serviceProfileKeyboard)()),
+        messageExtra: getMessageExtra((0, servicebot_1.serviceProfileKeyboard)()),
     });
 }
 async function showProfilePlaceholder(ctx, title, text) {
@@ -201,7 +189,14 @@ async function showProfileTopupScreen(ctx) {
     await (0, media_1.sendScreen)(ctx, {
         botKind: "servicebot",
         banner: "menu.jpg",
-        text: ["<b>💳 Пополнение баланса</b>", "", "Для перевода используйте реквизиты ниже:", (0, text_1.escapeHtml)(transferDetails)].join("\n"),
+        text: [
+            "<b>💳 Пополнение баланса</b>",
+            "",
+            "Введите сумму пополнения в следующем сообщении.",
+            "",
+            "Актуальные реквизиты:",
+            (0, text_1.escapeHtml)(transferDetails),
+        ].join("\n"),
         photoExtra: getPhotoExtra((0, servicebot_1.serviceProfileKeyboard)()),
         messageExtra: getMessageExtra((0, servicebot_1.serviceProfileKeyboard)()),
     });
@@ -229,14 +224,7 @@ async function showCategorySelection(ctx) {
     await (0, media_1.sendScreen)(ctx, {
         botKind: "servicebot",
         banner: "menu.jpg",
-        text: [
-            "<b>🔎 Выбор раздела</b>",
-            "",
-            "Шаг 1. Выберите интересующий раздел:",
-            "",
-            "💋 Девушки",
-            "🌶 Девушки с перчиком",
-        ].join("\n"),
+        text: ["<b>🔎 Выбор раздела</b>", "", "Шаг 1. Выберите интересующий раздел:", "", "💋 Девушки", "🌶 Девушки с перчиком"].join("\n"),
         photoExtra: getPhotoExtra((0, servicebot_1.modelCategoryKeyboard)()),
         messageExtra: getMessageExtra((0, servicebot_1.modelCategoryKeyboard)()),
     });
@@ -350,7 +338,17 @@ async function showPrebookingScreen(ctx, cardId) {
         await ctx.reply("Анкета не найдена.");
         return;
     }
-    await ctx.reply((0, showcase_service_1.buildPrebookingText)(), {
+    await ctx.reply([
+        "<b>📋 Предварительное бронирование</b>",
+        "",
+        `Модель: ${(0, text_1.escapeHtml)(card.name)}, ${card.age}`,
+        `Город: ${(0, text_1.escapeHtml)(card.city)}`,
+        "",
+        "🎁 Для фиксации предзаказа используется оплата из баланса бота.",
+        `💳 К оплате за слот 1 час: ${(0, text_1.formatMoney)(card.price_1h)}`,
+        "",
+        "После списания заявка сразу уходит воркеру на подтверждение.",
+    ].join("\n"), {
         parse_mode: "HTML",
         ...(0, servicebot_1.prebookingKeyboard)(cardId),
     });
@@ -367,7 +365,18 @@ async function showPaymentScreen(ctx, cardId) {
         return;
     }
     const cashAvailable = (await (0, bookings_service_1.countCompletedBookings)(user.id)) > 0;
-    await ctx.reply((0, showcase_service_1.buildPaymentText)(cashAvailable), {
+    await ctx.reply([
+        "<b>💘 Выберите способ оплаты</b>",
+        "",
+        `Модель: ${(0, text_1.escapeHtml)(card.name)}, ${card.age}`,
+        `Слот: 1 час — ${(0, text_1.formatMoney)(card.price_1h)}`,
+        `Баланс бота: ${(0, text_1.formatMoney)(user.balance)}`,
+        "",
+        "💳 Баланс бота доступен сразу после подтвержденного пополнения.",
+        cashAvailable
+            ? "💵 Наличные уже доступны, потому что у вас есть успешная встреча."
+            : "💵 Наличные откроются после 1 успешной встречи.",
+    ].join("\n"), {
         parse_mode: "HTML",
         ...(0, servicebot_1.paymentKeyboard)(cardId),
     });
@@ -393,16 +402,53 @@ async function handlePaymentChoice(ctx, cardId, paymentMethod) {
         });
         return;
     }
-    await (0, bookings_service_1.createBooking)(user.id, cardId, "Скидочный слот / демо-предзаказ", paymentMethod);
+    if (paymentMethod === "bot_balance") {
+        const result = await (0, bookings_service_1.createPaidBooking)(user.id, cardId, "Предзаказ / 1 час", card.price_1h);
+        if (result.status === "insufficient_balance") {
+            await ctx.answerCbQuery("Недостаточно средств").catch(() => undefined);
+            await ctx.reply([
+                "<b>❌ Недостаточно средств</b>",
+                "",
+                `Для предзаказа нужно: ${(0, text_1.formatMoney)(card.price_1h)}`,
+                `Сейчас на балансе: ${(0, text_1.formatMoney)(user.balance)}`,
+                "",
+                "Пополните баланс и отправьте чек на проверку администратору.",
+            ].join("\n"), {
+                parse_mode: "HTML",
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: "💳 Пополнить баланс", callback_data: "service:profile:topup" }],
+                        [{ text: "⬅️ Назад к модели", callback_data: `service:card:${cardId}` }],
+                    ],
+                },
+            });
+            return;
+        }
+        if (result.status === "missing_user") {
+            await ctx.reply("Сначала выполните /start.");
+            return;
+        }
+        await notifyOwnerAboutBooking(ctx, card, paymentMethod);
+        await ctx.answerCbQuery("✅ Оплата списана").catch(() => undefined);
+        await ctx.reply([
+            "<b>✅ Предзаказ оформлен</b>",
+            `Модель: ${(0, text_1.escapeHtml)(card.name)}`,
+            `Списано с баланса: ${(0, text_1.formatMoney)(card.price_1h)}`,
+            "Заявка передана воркеру и зафиксирована в системе.",
+        ].join("\n"), {
+            parse_mode: "HTML",
+            ...(0, servicebot_1.modelInfoBackKeyboard)(cardId),
+        });
+        return;
+    }
+    await (0, bookings_service_1.createBooking)(user.id, cardId, "Предзаказ / наличные", paymentMethod);
     await notifyOwnerAboutBooking(ctx, card, paymentMethod);
     await ctx.answerCbQuery("✅ Предзаказ оформлен").catch(() => undefined);
     await ctx.reply([
         "<b>✅ Предзаказ оформлен</b>",
         `Модель: ${(0, text_1.escapeHtml)(card.name)}`,
-        `Оплата: ${paymentMethod === "cash" ? "Наличные" : "Баланс бота"}`,
-        paymentMethod === "bot_balance"
-            ? "Теперь для следующих заявок вам доступна оплата наличными."
-            : "Слот зафиксирован и отправлен на подтверждение менеджеру.",
+        "Оплата: наличные",
+        "Слот зафиксирован и отправлен воркеру на подтверждение.",
     ].join("\n"), {
         parse_mode: "HTML",
         ...(0, servicebot_1.modelInfoBackKeyboard)(cardId),
@@ -447,9 +493,10 @@ async function showSupportScreen(ctx) {
         text: [
             "<b>💬 Поддержка</b>",
             "",
-            "Если нужен оператор или помощь по заказу, создайте обращение. Заявка сохранится в БД, а администратор получит уведомление.",
+            "Если нужен оператор или помощь по заказу, создайте обращение.",
+            "Заявка сохранится в базе, а администратор получит уведомление.",
             "",
-            "Мы отвечаем быстро и сопровождаем обращение до результата.",
+            "Мы сопровождаем обращение до результата.",
         ].join("\n"),
         photoExtra: getPhotoExtra((0, servicebot_1.supportKeyboard)()),
         messageExtra: getMessageExtra((0, servicebot_1.supportKeyboard)()),
@@ -476,11 +523,7 @@ async function showInfoSection(ctx, key) {
     });
 }
 async function showWorkerHome(ctx) {
-    await ctx.reply([
-        "<b>💼 Воркер-панель</b>",
-        "",
-        "Доступны рассылка по мамонтам, список мамонтов и добавление анкеты.",
-    ].join("\n"), {
+    await ctx.reply(["<b>💼 Воркер-панель</b>", "", "Доступны рассылка по мамонтам, список мамонтов и добавление анкеты."].join("\n"), {
         parse_mode: "HTML",
         ...(0, servicebot_1.workerPanelKeyboard)(),
     });

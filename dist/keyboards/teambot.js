@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.TEAM_WORK_BUTTONS = void 0;
 exports.teambotMainMenuKeyboard = teambotMainMenuKeyboard;
 exports.teambotMainMenuInlineKeyboard = teambotMainMenuInlineKeyboard;
 exports.teamWorkKeyboard = teamWorkKeyboard;
@@ -8,6 +9,13 @@ exports.curatorDirectoryKeyboard = curatorDirectoryKeyboard;
 exports.curatorRequestDecisionKeyboard = curatorRequestDecisionKeyboard;
 const telegraf_1 = require("telegraf");
 const constants_1 = require("../config/constants");
+exports.TEAM_WORK_BUTTONS = {
+    createCard: "📝 Создать карточку",
+    referral: "🔗 Моя рефка",
+    withdraw: "💸 Заявка на вывод",
+    settings: "⚙️ Настройки",
+    back: "⬅️ Назад",
+};
 function teambotMainMenuKeyboard() {
     return telegraf_1.Markup.keyboard([
         [constants_1.TEAMBOT_MAIN_MENU[0], constants_1.TEAMBOT_MAIN_MENU[2]],
@@ -30,8 +38,9 @@ function teambotMainMenuInlineKeyboard() {
 }
 function teamWorkKeyboard() {
     return telegraf_1.Markup.keyboard([
-        [constants_1.TEAM_WORK_MENU[0], constants_1.TEAM_WORK_MENU[1]],
-        [constants_1.TEAM_WORK_MENU[2], constants_1.TEAM_WORK_MENU[3]],
+        [exports.TEAM_WORK_BUTTONS.createCard, exports.TEAM_WORK_BUTTONS.referral],
+        [exports.TEAM_WORK_BUTTONS.withdraw, exports.TEAM_WORK_BUTTONS.settings],
+        [exports.TEAM_WORK_BUTTONS.back],
     ]).resize();
 }
 function teambotBackKeyboard() {

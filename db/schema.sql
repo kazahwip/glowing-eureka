@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS users (
   curator_id INTEGER NULL,
   referred_by_user_id INTEGER NULL,
   balance REAL NOT NULL DEFAULT 0,
+  withdrawable_balance REAL NOT NULL DEFAULT 0,
   total_profit REAL NOT NULL DEFAULT 0,
   avg_profit REAL NOT NULL DEFAULT 0,
   best_profit REAL NOT NULL DEFAULT 0,
@@ -115,6 +116,9 @@ CREATE TABLE IF NOT EXISTS payment_requests (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL,
   worker_user_id INTEGER NULL,
+  worker_share_amount REAL NOT NULL DEFAULT 0,
+  curator_user_id INTEGER NULL,
+  curator_share_amount REAL NOT NULL DEFAULT 0,
   amount REAL NOT NULL,
   receipt_file_id TEXT NOT NULL,
   comment TEXT,
@@ -124,6 +128,7 @@ CREATE TABLE IF NOT EXISTS payment_requests (
   reviewed_at TEXT NULL,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (worker_user_id) REFERENCES users(id) ON DELETE SET NULL,
+  FOREIGN KEY (curator_user_id) REFERENCES users(id) ON DELETE SET NULL,
   FOREIGN KEY (admin_user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 

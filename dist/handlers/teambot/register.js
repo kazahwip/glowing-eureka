@@ -128,6 +128,29 @@ async function buildKassaText() {
         buildTopWorkersSection("🏆 Топ воркеров за все время", allTop),
     ].join("\n");
 }
+async function notifyWorkerChatAboutProfitFormatted(request) {
+    const workerChatId = await (0, settings_service_1.getWorkerChatId)();
+    if (!workerChatId) {
+        return;
+    }
+    const worker = request.worker_user_id ? await (0, users_service_1.getUserById)(request.worker_user_id) : null;
+    const curator = request.curator_user_id ? await (0, users_service_1.getUserById)(request.curator_user_id) : null;
+    const workerLabel = worker ? (0, text_1.escapeHtml)((0, text_1.formatUserLabel)(worker)) : "не назначен";
+    const lines = [
+        "<b>🔥 Payments</b>",
+        `🐺 Профит у ${workerLabel}`,
+        "├ Сервис: 🤖 Honey Bunny",
+        `├ Сумма оплаты: ${(0, text_1.formatMoney)(request.amount)}`,
+        `├ Доля воркера: ${(0, text_1.formatMoney)(request.worker_share_amount)}`,
+        curator ? `└ Доля куратора (${(0, text_1.escapeHtml)((0, text_1.formatUserLabel)(curator))}): ${(0, text_1.formatMoney)(request.curator_share_amount)}` : "└ Доля куратора: 0 RUB",
+    ];
+    try {
+        await (0, bot_clients_service_1.getTeambotTelegram)().sendMessage(workerChatId, lines.join("\n"), { parse_mode: "HTML" });
+    }
+    catch {
+        // ignore delivery errors
+    }
+}
 async function notifyWorkerChatAboutProfit(request) {
     const workerChatId = await (0, settings_service_1.getWorkerChatId)();
     if (!workerChatId) {
@@ -208,9 +231,11 @@ function registerTeambotHandlers(bot) {
     bot.hears(constants_1.TEAMBOT_MAIN_MENU[2], views_1.showProfileScreen);
     bot.hears(constants_1.TEAMBOT_MAIN_MENU[3], views_1.showCuratorsScreen);
     bot.hears(constants_1.TEAMBOT_MAIN_MENU[4], views_1.showProjectInfoScreen);
-    bot.hears(constants_1.TEAM_WORK_MENU[0], async (ctx) => ctx.scene.enter("team-create-card"));
-    bot.hears(constants_1.TEAM_WORK_MENU[1], views_1.showWorkerReferralScreen);
-    bot.hears(constants_1.TEAM_WORK_MENU[2], views_1.showTeamWorkSettings);
+    bot.hears(teambot_1.TEAM_WORK_BUTTONS.createCard, async (ctx) => ctx.scene.enter("team-create-card"));
+    bot.hears(teambot_1.TEAM_WORK_BUTTONS.referral, views_1.showWorkerReferralScreen);
+    bot.hears(teambot_1.TEAM_WORK_BUTTONS.withdraw, views_1.showWithdrawRequestsScreen);
+    bot.hears(teambot_1.TEAM_WORK_BUTTONS.settings, views_1.showTeamWorkSettings);
+    bot.hears(teambot_1.TEAM_WORK_BUTTONS.back, views_1.showTeambotHome);
     bot.hears(constants_1.BACK_BUTTON, views_1.showTeambotHome);
     bot.action("team:menu:work", async (ctx) => {
         await answerCallback(ctx);
@@ -614,7 +639,7 @@ function registerTeambotHandlers(bot) {
                 `На баланс зачислено ${result.request.amount.toFixed(2)} RUB.`,
                 "Проверьте профиль в Honey Bunny.",
             ].join("\n"));
-            await notifyWorkerChatAboutProfit(result.request);
+            await notifyWorkerChatAboutProfitFormatted(result.request);
             await ctx.reply(`Заявка #${requestId} принята. Баланс клиента пополнен.`);
         }
         if (decision === "reject" && result.request) {

@@ -1,6 +1,14 @@
 import { Markup } from "telegraf";
-import { BACK_BUTTON, TEAMBOT_MAIN_MENU, TEAM_WORK_MENU } from "../config/constants";
+import { BACK_BUTTON, TEAMBOT_MAIN_MENU } from "../config/constants";
 import type { Curator } from "../types/entities";
+
+export const TEAM_WORK_BUTTONS = {
+  createCard: "📝 Создать карточку",
+  referral: "🔗 Моя рефка",
+  withdraw: "💸 Заявка на вывод",
+  settings: "⚙️ Настройки",
+  back: "⬅️ Назад",
+} as const;
 
 export function teambotMainMenuKeyboard() {
   return Markup.keyboard([
@@ -26,8 +34,9 @@ export function teambotMainMenuInlineKeyboard() {
 
 export function teamWorkKeyboard() {
   return Markup.keyboard([
-    [TEAM_WORK_MENU[0], TEAM_WORK_MENU[1]],
-    [TEAM_WORK_MENU[2], TEAM_WORK_MENU[3]],
+    [TEAM_WORK_BUTTONS.createCard, TEAM_WORK_BUTTONS.referral],
+    [TEAM_WORK_BUTTONS.withdraw, TEAM_WORK_BUTTONS.settings],
+    [TEAM_WORK_BUTTONS.back],
   ]).resize();
 }
 

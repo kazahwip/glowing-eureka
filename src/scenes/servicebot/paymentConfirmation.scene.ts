@@ -1,16 +1,26 @@
 import { Markup, Scenes } from "telegraf";
 import { CANCEL_BUTTON } from "../../config/constants";
 import { config } from "../../config/env";
+import { showServiceProfile } from "../../handlers/servicebot/views";
 import { adminPaymentRequestKeyboard } from "../../keyboards/admin";
 import { getTeambotTelegram } from "../../services/bot-clients.service";
+import { persistTelegramPhotoReferences, mediaInputFromReference } from "../../services/media.service";
 import { createPaymentRequest } from "../../services/payment-requests.service";
-import { mediaInputFromReference, persistTelegramPhotoReferences } from "../../services/media.service";
+import { getTransferDetails } from "../../services/settings.service";
 import type { AppContext } from "../../types/context";
 import { escapeHtml, formatMoney } from "../../utils/text";
 import { parsePositiveNumber } from "../../utils/validators";
-import { showProfileTopupScreen } from "../../handlers/servicebot/views";
 
+const PAID_BUTTON = "✅ Я перевел";
 const cancelKeyboard = Markup.keyboard([[CANCEL_BUTTON]]).resize();
+const paidKeyboard = Markup.keyboard([[PAID_BUTTON], [CANCEL_BUTTON]]).resize();
+
+async function closeSceneToProfile(ctx: AppContext, notice?: string) {
+  ctx.session.paymentRequestDraft = undefined;
+  await ctx.scene.leave();
+  await ctx.reply(notice ?? "\u2063", Markup.removeKeyboard());
+  await showServiceProfile(ctx);
+}
 
 async function notifyAdminsAboutPaymentRequest(
   ctx: AppContext,
@@ -27,7 +37,7 @@ async function notifyAdminsAboutPaymentRequest(
   const caption = [
     "<b>💳 Новая заявка на проверку оплаты</b>",
     `Заявка: #${requestId}`,
-    `Мамонт: <code>${ctx.from.id}</code>${ctx.from.username ? ` (@${escapeHtml(ctx.from.username)})` : ""}`,
+    `Клиент: <code>${ctx.from.id}</code>${ctx.from.username ? ` (@${escapeHtml(ctx.from.username)})` : ""}`,
     `Сумма: ${formatMoney(amount)}`,
     comment ? `Комментарий: ${escapeHtml(comment)}` : undefined,
   ]
@@ -59,36 +69,66 @@ export const paymentConfirmationScene = new Scenes.WizardScene<AppContext>(
   "service-payment-confirmation",
   async (ctx) => {
     ctx.session.paymentRequestDraft = {};
-    await ctx.reply("Введите сумму перевода одним сообщением.", cancelKeyboard);
+    await ctx.reply("Введите сумму пополнения одним сообщением.", cancelKeyboard);
     return ctx.wizard.next();
   },
   async (ctx) => {
-    if (ctx.message && "text" in ctx.message) {
-      if (ctx.message.text === CANCEL_BUTTON) {
-        ctx.session.paymentRequestDraft = undefined;
-        await ctx.scene.leave();
-        await showProfileTopupScreen(ctx);
-        return;
-      }
-
-      const amount = parsePositiveNumber(ctx.message.text);
-      if (!amount) {
-        await ctx.reply("Введите корректную сумму перевода числом.");
-        return;
-      }
-
-      ctx.session.paymentRequestDraft = { amount };
-      await ctx.reply("Отправьте скриншот или фото чека перевода. При необходимости добавьте комментарий в подпись.", cancelKeyboard);
-      return ctx.wizard.next();
+    if (!ctx.message || !("text" in ctx.message)) {
+      await ctx.reply("Введите сумму пополнения текстом.");
+      return;
     }
 
-    await ctx.reply("Введите сумму перевода текстом.");
+    if (ctx.message.text === CANCEL_BUTTON) {
+      await closeSceneToProfile(ctx, "Пополнение отменено.");
+      return;
+    }
+
+    const amount = parsePositiveNumber(ctx.message.text);
+    if (!amount) {
+      await ctx.reply("Введите корректную сумму пополнения числом.");
+      return;
+    }
+
+    ctx.session.paymentRequestDraft = { amount };
+    const transferDetails = await getTransferDetails();
+    await ctx.reply(
+      [
+        "<b>💳 Реквизиты для перевода</b>",
+        "",
+        `Сумма: ${formatMoney(amount)}`,
+        escapeHtml(transferDetails),
+        "",
+        "После перевода нажмите «Я перевел».",
+      ].join("\n"),
+      {
+        parse_mode: "HTML",
+        ...paidKeyboard,
+      },
+    );
+    return ctx.wizard.next();
+  },
+  async (ctx) => {
+    if (!ctx.message || !("text" in ctx.message)) {
+      await ctx.reply("Нажмите «Я перевел» или отмените пополнение.", paidKeyboard);
+      return;
+    }
+
+    if (ctx.message.text === CANCEL_BUTTON) {
+      await closeSceneToProfile(ctx, "Пополнение отменено.");
+      return;
+    }
+
+    if (ctx.message.text !== PAID_BUTTON) {
+      await ctx.reply("Используйте кнопку «Я перевел», когда перевод будет отправлен.", paidKeyboard);
+      return;
+    }
+
+    await ctx.reply("Отправьте скриншот или фото чека перевода. При необходимости добавьте комментарий в подпись.", cancelKeyboard);
+    return ctx.wizard.next();
   },
   async (ctx) => {
     if (ctx.message && "text" in ctx.message && ctx.message.text === CANCEL_BUTTON) {
-      ctx.session.paymentRequestDraft = undefined;
-      await ctx.scene.leave();
-      await showProfileTopupScreen(ctx);
+      await closeSceneToProfile(ctx, "Пополнение отменено.");
       return;
     }
 
@@ -100,12 +140,8 @@ export const paymentConfirmationScene = new Scenes.WizardScene<AppContext>(
     const user = ctx.state.user;
     const amount = ctx.session.paymentRequestDraft?.amount;
     const photoId = ctx.message.photo.at(-1)?.file_id;
-
     if (!user || !amount || !photoId) {
-      ctx.session.paymentRequestDraft = undefined;
-      await ctx.scene.leave();
-      await ctx.reply("Не удалось сохранить заявку. Попробуйте ещё раз.");
-      await showProfileTopupScreen(ctx);
+      await closeSceneToProfile(ctx, "Не удалось сохранить заявку. Попробуйте еще раз.");
       return;
     }
 
@@ -123,9 +159,9 @@ export const paymentConfirmationScene = new Scenes.WizardScene<AppContext>(
       await notifyAdminsAboutPaymentRequest(ctx, request.id, amount, receiptReference, comment);
     }
 
-    ctx.session.paymentRequestDraft = undefined;
-    await ctx.scene.leave();
-    await ctx.reply("Заявка на проверку оплаты отправлена администратору. После проверки баланс будет обновлён вручную.");
-    await showProfileTopupScreen(ctx);
+    await closeSceneToProfile(
+      ctx,
+      "Заявка на проверку оплаты отправлена администратору. После подтверждения баланс обновится автоматически.",
+    );
   },
 );
