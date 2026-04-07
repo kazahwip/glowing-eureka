@@ -49,6 +49,20 @@ const reviewAuthors = [
   "Мария Ф.",
 ];
 
+const displayReviewAuthors = [
+  "Anatoly S.",
+  "Fedor V.",
+  "Vladimir N.",
+  "Nikolay B.",
+  "Aleksandr K.",
+  "Oleg D.",
+  "Timur A.",
+  "Grigoriy L.",
+  "Boris N.",
+  "Kirill D.",
+  "Mikhail L.",
+  "Pavel R.",
+];
 const legacyReviewTemplates = [
   "На выездной работе с {name} всё прошло идеально, она элегантная и очень собранная. Просто космос.",
   "{name} приехала без задержек и превзошла ожидания. Очень тёплая в общении и уверенная в работе. Рекомендую.",
@@ -161,12 +175,14 @@ function buildStats(card: ShowcaseCard): ModelStats {
   const nextCheckAt = new Date(issuedAt);
   nextCheckAt.setDate(nextCheckAt.getDate() + getRandomInt(random, 21, 36));
   const ratingValue = clamp(getRandomInt(random, 45, 47) + Math.round(ageFactor * 3), 45, 50);
+  const completedMeetings = scaleStat(getRandomInt(random, 58, 214), ageFactor, 24);
+  const reviewsCount = Math.min(completedMeetings, scaleStat(getRandomInt(random, 18, 132), ageFactor, 8));
 
   return {
     verificationId: `LUX-${verificationNumber}`,
     rating: (ratingValue / 10).toFixed(1),
-    reviewsCount: scaleStat(getRandomInt(random, 182, 587), ageFactor, 72),
-    completedProjects: scaleStat(getRandomInt(random, 58, 214), ageFactor, 24),
+    reviewsCount,
+    completedProjects: completedMeetings,
     positivePercent: clamp(getRandomInt(random, 92, 95) + Math.round(ageFactor * 4), 92, 99),
     regularClients: scaleStat(getRandomInt(random, 12, 34), 0.45 + ageFactor * 0.55, 4),
     issuedAt: formatRuDate(issuedAt),
@@ -198,9 +214,9 @@ function buildModelReviews(card: ShowcaseCard) {
   const items: ModelReview[] = [];
 
   for (let index = 0; index < 6; index += 1) {
-    let author = reviewAuthors[getRandomInt(random, 0, reviewAuthors.length - 1)];
+    let author = displayReviewAuthors[getRandomInt(random, 0, displayReviewAuthors.length - 1)];
     while (usedAuthors.has(author)) {
-      author = reviewAuthors[getRandomInt(random, 0, reviewAuthors.length - 1)];
+      author = displayReviewAuthors[getRandomInt(random, 0, displayReviewAuthors.length - 1)];
     }
     usedAuthors.add(author);
 
