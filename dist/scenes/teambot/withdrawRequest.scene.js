@@ -8,6 +8,7 @@ const views_1 = require("../../handlers/teambot/views");
 const admin_1 = require("../../keyboards/admin");
 const bot_clients_service_1 = require("../../services/bot-clients.service");
 const withdraw_requests_service_1 = require("../../services/withdraw-requests.service");
+const users_service_1 = require("../../services/users.service");
 const text_1 = require("../../utils/text");
 const validators_1 = require("../../utils/validators");
 const cancelKeyboard = telegraf_1.Markup.keyboard([[constants_1.CANCEL_BUTTON]]).resize();
@@ -84,26 +85,14 @@ exports.withdrawRequestScene = new telegraf_1.Scenes.WizardScene("team-withdraw-
         await ctx.reply(`Недостаточно доступного баланса. Сейчас доступно ${(0, text_1.formatMoney)(user.withdrawable_balance)}.`);
         return;
     }
+    const freshUser = await (0, users_service_1.getUserById)(user.id);
+    const payoutDetails = freshUser?.payout_details?.trim() ?? "";
+    if (!freshUser || !payoutDetails) {
+        await closeSceneToWithdraw(ctx, "Сначала заполните реквизиты через кнопку «💳 Реквизиты для выплаты», затем создайте заявку ещё раз.");
+        return;
+    }
     ctx.session.withdrawRequestDraft = { amount };
-    await ctx.reply("Введите реквизиты для выплаты одним сообщением. Например: номер карты, банк и имя получателя.", cancelKeyboard);
-    return ctx.wizard.next();
-}, async (ctx) => {
-    if (!ctx.message || !("text" in ctx.message)) {
-        await ctx.reply("Введите реквизиты текстом.");
-        return;
-    }
-    if (ctx.message.text === constants_1.CANCEL_BUTTON) {
-        await closeSceneToWithdraw(ctx, "Создание заявки на вывод отменено.");
-        return;
-    }
-    const draft = ctx.session.withdrawRequestDraft;
-    const user = ctx.state.user;
-    const payoutDetails = ctx.message.text.trim();
-    if (!user || !draft?.amount || !payoutDetails) {
-        await closeSceneToWithdraw(ctx, "Не удалось создать заявку. Попробуйте ещё раз.");
-        return;
-    }
-    const result = await (0, withdraw_requests_service_1.createWithdrawRequest)(user.id, draft.amount, payoutDetails);
+    const result = await (0, withdraw_requests_service_1.createWithdrawRequest)(user.id, amount, payoutDetails);
     if (result.status === "insufficient_balance") {
         await closeSceneToWithdraw(ctx, "Недостаточно доступного баланса для новой заявки.");
         return;
@@ -112,12 +101,13 @@ exports.withdrawRequestScene = new telegraf_1.Scenes.WizardScene("team-withdraw-
         await closeSceneToWithdraw(ctx, "Не удалось создать заявку. Попробуйте ещё раз.");
         return;
     }
-    await notifyAdminsAboutWithdrawRequest(ctx, result.request.id, draft.amount, payoutDetails);
+    await notifyAdminsAboutWithdrawRequest(ctx, result.request.id, amount, payoutDetails);
     if (ctx.state.user) {
         ctx.state.user = {
             ...ctx.state.user,
-            withdrawable_balance: Math.max(0, ctx.state.user.withdrawable_balance - draft.amount),
+            payout_details: payoutDetails,
+            withdrawable_balance: Math.max(0, ctx.state.user.withdrawable_balance - amount),
         };
     }
-    await closeSceneToWithdraw(ctx, `Заявка #${result.request.id} на ${(0, text_1.formatMoney)(draft.amount)} создана и отправлена админам на рассмотрение.`);
+    await closeSceneToWithdraw(ctx, `Заявка #${result.request.id} на ${(0, text_1.formatMoney)(amount)} создана и отправлена админам на рассмотрение.`);
 });

@@ -87,7 +87,7 @@ function buildSignalSettingsText() {
 
 function getWithdrawStatusLabel(status: "pending" | "approved" | "paid" | "rejected") {
   if (status === "approved") {
-    return "✅ Подтверждена";
+    return "⏳ На выплате";
   }
 
   if (status === "paid") {
@@ -99,6 +99,19 @@ function getWithdrawStatusLabel(status: "pending" | "approved" | "paid" | "rejec
   }
 
   return "⏳ На проверке";
+}
+
+function summarizePayoutDetails(value: string | null | undefined) {
+  if (!value) {
+    return "не заполнены";
+  }
+
+  const compact = value.replace(/\s+/g, " ").trim();
+  if (compact.length <= 70) {
+    return compact;
+  }
+
+  return `${compact.slice(0, 67)}...`;
 }
 
 export async function showTeambotHome(ctx: AppContext) {
@@ -218,8 +231,8 @@ export async function showWithdrawRequestsScreen(ctx: AppContext) {
     "<b>💸 Заявка на вывод</b>",
     "",
     `Доступно для вывода: ${formatMoney(user.withdrawable_balance)}`,
-    `Ожидает проверки: ${summary.pendingCount} шт. • ${formatMoney(summary.pendingAmount)}`,
-    `Подтверждено админом: ${formatMoney(summary.approvedAmount)}`,
+    `Реквизиты для выплаты: ${escapeHtml(summarizePayoutDetails(user.payout_details))}`,
+    `На выплате: ${summary.processingCount} шт. • ${formatMoney(summary.processingAmount)}`,
     `Уже выплачено: ${formatMoney(summary.paidAmount)}`,
   ];
 

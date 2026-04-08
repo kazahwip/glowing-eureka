@@ -5,7 +5,6 @@ exports.getWithdrawRequestById = getWithdrawRequestById;
 exports.getWithdrawRequestWithUser = getWithdrawRequestWithUser;
 exports.listRecentWithdrawRequestsByUser = listRecentWithdrawRequestsByUser;
 exports.getWithdrawRequestSummary = getWithdrawRequestSummary;
-exports.approveWithdrawRequest = approveWithdrawRequest;
 exports.markWithdrawRequestPaid = markWithdrawRequestPaid;
 exports.rejectWithdrawRequest = rejectWithdrawRequest;
 const client_1 = require("../db/client");
@@ -66,32 +65,16 @@ async function listRecentWithdrawRequestsByUser(userId, limit = 5) {
 async function getWithdrawRequestSummary(userId) {
     const db = await (0, client_1.getDb)();
     const row = await db.get(`SELECT
-      SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pendingCount,
-      ROUND(COALESCE(SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END), 0), 2) AS pendingAmount,
-      ROUND(COALESCE(SUM(CASE WHEN status = 'approved' THEN amount ELSE 0 END), 0), 2) AS approvedAmount,
+      SUM(CASE WHEN status IN ('pending', 'approved') THEN 1 ELSE 0 END) AS processingCount,
+      ROUND(COALESCE(SUM(CASE WHEN status IN ('pending', 'approved') THEN amount ELSE 0 END), 0), 2) AS processingAmount,
       ROUND(COALESCE(SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END), 0), 2) AS paidAmount
      FROM withdraw_requests
      WHERE user_id = ?`, userId);
     return {
-        pendingCount: row?.pendingCount ?? 0,
-        pendingAmount: row?.pendingAmount ?? 0,
-        approvedAmount: row?.approvedAmount ?? 0,
+        processingCount: row?.processingCount ?? 0,
+        processingAmount: row?.processingAmount ?? 0,
         paidAmount: row?.paidAmount ?? 0,
     };
-}
-async function approveWithdrawRequest(requestId, adminUserId) {
-    const db = await (0, client_1.getDb)();
-    const request = await db.get("SELECT * FROM withdraw_requests WHERE id = ?", requestId);
-    if (!request) {
-        return { status: "missing", request: null };
-    }
-    if (request.status !== "pending") {
-        return { status: "processed", request: await getWithdrawRequestWithUser(requestId) };
-    }
-    await db.run(`UPDATE withdraw_requests
-     SET status = 'approved', admin_user_id = ?, reviewed_at = CURRENT_TIMESTAMP
-     WHERE id = ?`, adminUserId, requestId);
-    return { status: "approved", request: await getWithdrawRequestWithUser(requestId) };
 }
 async function markWithdrawRequestPaid(requestId, adminUserId) {
     const db = await (0, client_1.getDb)();
@@ -102,8 +85,8 @@ async function markWithdrawRequestPaid(requestId, adminUserId) {
     if (request.status === "paid") {
         return { status: "processed", request: await getWithdrawRequestWithUser(requestId) };
     }
-    if (request.status !== "approved") {
-        return { status: "not_approved", request: await getWithdrawRequestWithUser(requestId) };
+    if (!["pending", "approved"].includes(request.status)) {
+        return { status: "processed", request: await getWithdrawRequestWithUser(requestId) };
     }
     await db.run(`UPDATE withdraw_requests
      SET status = 'paid', admin_user_id = ?, reviewed_at = CURRENT_TIMESTAMP

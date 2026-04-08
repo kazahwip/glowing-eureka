@@ -163,11 +163,7 @@ export function adminPaymentRequestKeyboard(requestId: number) {
 
 export function adminWithdrawRequestKeyboard(requestId: number) {
   return Markup.inlineKeyboard([
-    [
-      Markup.button.callback("✅ Принять", `admin:withdraw-request:${requestId}:approve`),
-      Markup.button.callback("💸 Выплачено", `admin:withdraw-request:${requestId}:paid`),
-      Markup.button.callback("❌ Отклонить", `admin:withdraw-request:${requestId}:reject`),
-    ],
+    [Markup.button.callback("💸 Выплачено", `admin:withdraw-request:${requestId}:paid`)],
   ]);
 }
 

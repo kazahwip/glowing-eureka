@@ -55,6 +55,7 @@ export function withdrawRequestKeyboard(canCreate: boolean) {
     rows.push([Markup.button.callback("📝 Создать заявку", "team:withdraw:create")]);
   }
 
+  rows.push([Markup.button.callback("💳 Реквизиты для выплаты", "team:withdraw:payout-details")]);
   rows.push([Markup.button.callback("💸 Сообщить о профите", "team:profit-report:create")]);
 
   rows.push(

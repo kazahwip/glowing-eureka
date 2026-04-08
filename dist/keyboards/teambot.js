@@ -57,6 +57,7 @@ function withdrawRequestKeyboard(canCreate) {
     if (canCreate) {
         rows.push([telegraf_1.Markup.button.callback("📝 Создать заявку", "team:withdraw:create")]);
     }
+    rows.push([telegraf_1.Markup.button.callback("💳 Реквизиты для выплаты", "team:withdraw:payout-details")]);
     rows.push([telegraf_1.Markup.button.callback("💸 Сообщить о профите", "team:profit-report:create")]);
     rows.push([telegraf_1.Markup.button.callback("🔄 Обновить", "team:withdraw:refresh")], [telegraf_1.Markup.button.callback("⬅️ Назад", "team:withdraw:back")]);
     return telegraf_1.Markup.inlineKeyboard(rows);

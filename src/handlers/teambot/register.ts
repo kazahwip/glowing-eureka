@@ -21,7 +21,6 @@ import { notifyWorkerChatAboutProfit as sendProjectProfitToWorkerChat } from "..
 import { getProjectStats, getWorkerChatId, recalculateProjectStats, setWorkerChatId } from "../../services/settings.service";
 import { getUserById, isWorkerSignalEnabled, registerTeambotUser, setUserBlocked, setUserRole, updateWorkerSignalSetting } from "../../services/users.service";
 import {
-  approveWithdrawRequest,
   markWithdrawRequestPaid,
   rejectWithdrawRequest,
   type WithdrawRequestWithUser,
@@ -104,16 +103,16 @@ async function notifyClientAboutPaymentDecision(telegramId: number, text: string
   }
 }
 
-async function notifyWorkerAboutWithdrawDecision(request: WithdrawRequestWithUser, decision: "approved" | "rejected") {
+async function notifyWorkerAboutWithdrawDecision(request: WithdrawRequestWithUser, decision: "paid" | "rejected") {
   try {
     await getTeambotTelegram().sendMessage(
       request.telegram_id,
       [
-        decision === "approved" ? "<b>✅ Заявка на вывод подтверждена</b>" : "<b>❌ Заявка на вывод отклонена</b>",
+        decision === "paid" ? "<b>💸 Заявка на вывод выплачена</b>" : "<b>❌ Заявка на вывод отклонена</b>",
         `Заявка: #${request.id}`,
         `Сумма: ${formatMoney(request.amount)}`,
-        decision === "approved"
-          ? "Админ подтвердил заявку. Выплата будет обработана по указанным реквизитам."
+        decision === "paid"
+          ? "Админ отметил заявку как выплаченную."
           : "Сумма возвращена в доступный баланс AWAKE BOT. Проверьте реквизиты и создайте заявку заново.",
       ].join("\n"),
       { parse_mode: "HTML" },
@@ -136,7 +135,7 @@ async function notifyWorkerAboutProfitReportDecision(
         decision === "approved" ? "<b>✅ Профит подтверждён</b>" : "<b>❌ Профит отклонён</b>",
         `Сумма: ${formatMoney(amount)}`,
         decision === "approved"
-          ? `Источник: ${source === "honeybunny" ? "HonneyBunny" : "Прямой перевод"}`
+          ? `Профит добавлен в баланс AWAKE BOT.\nИсточник: ${source === "honeybunny" ? "HonneyBunny" : "Прямой перевод"}`
           : "Заявка не была зачтена в кассу проекта.",
       ].join("\n"),
       { parse_mode: "HTML" },
@@ -407,6 +406,11 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
   bot.action("team:withdraw:create", async (ctx) => {
     await answerCallback(ctx);
     await ctx.scene.enter("team-withdraw-request");
+  });
+
+  bot.action("team:withdraw:payout-details", async (ctx) => {
+    await answerCallback(ctx);
+    await ctx.scene.enter("team-payout-details");
   });
 
   bot.action("team:profit-report:create", async (ctx) => {
@@ -990,19 +994,12 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
     const requestId = Number(ctx.match[1]);
     const decision = ctx.match[2] as "approve" | "paid" | "reject";
     const result =
-      decision === "approve"
-        ? await approveWithdrawRequest(requestId, ctx.state.user.id)
-        : decision === "paid"
+      decision === "approve" || decision === "paid"
           ? await markWithdrawRequestPaid(requestId, ctx.state.user.id)
         : await rejectWithdrawRequest(requestId, ctx.state.user.id);
 
     if (result.status === "missing") {
       await ctx.reply("Заявка на вывод не найдена.");
-      return;
-    }
-
-    if (result.status === "not_approved") {
-      await ctx.reply("Сначала подтвердите заявку, затем отмечайте её как выплаченную.");
       return;
     }
 
@@ -1016,43 +1013,25 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
       return;
     }
 
-    if (decision === "approve") {
-      await notifyWorkerAboutWithdrawDecision(result.request, "approved");
-    } else if (decision === "reject") {
+    if (decision === "reject") {
       await notifyWorkerAboutWithdrawDecision(result.request, "rejected");
     } else {
-      try {
-        await getTeambotTelegram().sendMessage(
-          result.request.telegram_id,
-          [
-            "<b>💸 Выплата отмечена как отправленная</b>",
-            `Заявка: #${result.request.id}`,
-            `Сумма: ${formatMoney(result.request.amount)}`,
-          ].join("\n"),
-          { parse_mode: "HTML" },
-        );
-      } catch {
-        // ignore delivery errors
-      }
+      await notifyWorkerAboutWithdrawDecision(result.request, "paid");
     }
     await logAdminAction(
       ctx.state.user.id,
-      decision === "approve"
-        ? "approve_withdraw_request"
-        : decision === "paid"
+      decision === "paid" || decision === "approve"
           ? "mark_withdraw_request_paid"
           : "reject_withdraw_request",
       `request:${requestId}; amount:${result.request.amount}`,
     );
 
     await ctx.reply(
-      decision === "approve"
-        ? `Заявка на вывод #${requestId} подтверждена.`
-        : decision === "paid"
+      decision === "paid" || decision === "approve"
           ? `Заявка на вывод #${requestId} отмечена как выплаченная.`
           : `Заявка на вывод #${requestId} отклонена, сумма возвращена воркеру.`,
     );
-    if (decision === "paid" || decision === "reject") {
+    if (decision === "paid" || decision === "approve" || decision === "reject") {
       await ctx.editMessageReplyMarkup({ inline_keyboard: [] }).catch(() => undefined);
     }
   });
@@ -1116,7 +1095,7 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
       `request:${requestId}; amount:${result.request.amount}; source:${source}`,
     );
     await ctx.reply(
-      `Заявка о профите #${requestId} подтверждена и зачтена как ${source === "honeybunny" ? "HonneyBunny" : "прямой перевод"}.`,
+      `Заявка о профите #${requestId} подтверждена, добавлена в баланс AWAKE BOT и зачтена как ${source === "honeybunny" ? "HonneyBunny" : "прямой перевод"}.`,
     );
     await ctx.editMessageReplyMarkup({ inline_keyboard: [] }).catch(() => undefined);
   });

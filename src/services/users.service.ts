@@ -134,6 +134,12 @@ export async function incrementUserBalance(userId: number, amount: number) {
   return getUserById(userId);
 }
 
+export async function updateUserPayoutDetails(userId: number, payoutDetails: string) {
+  const db = await getDb();
+  await db.run("UPDATE users SET payout_details = ? WHERE id = ?", payoutDetails.trim() || null, userId);
+  return getUserById(userId);
+}
+
 export async function updateWorkerSignalSetting(userId: number, category: WorkerSignalCategory, enabled: boolean) {
   const db = await getDb();
   const column = getWorkerSignalColumnName(category);

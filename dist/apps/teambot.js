@@ -16,6 +16,7 @@ const adminProjectStats_scene_1 = require("../scenes/teambot/adminProjectStats.s
 const adminTransfer_scene_1 = require("../scenes/teambot/adminTransfer.scene");
 const adminUserSearch_scene_1 = require("../scenes/teambot/adminUserSearch.scene");
 const createCard_scene_1 = require("../scenes/teambot/createCard.scene");
+const payoutDetails_scene_1 = require("../scenes/teambot/payoutDetails.scene");
 const profitReport_scene_1 = require("../scenes/teambot/profitReport.scene");
 const withdrawRequest_scene_1 = require("../scenes/teambot/withdrawRequest.scene");
 const context_1 = require("../types/context");
@@ -40,6 +41,7 @@ async function launchTeambot() {
             adminCuratorUnassign_scene_1.adminCuratorUnassignScene,
             adminBroadcast_scene_1.adminBroadcastScene,
             adminAddProfit_scene_1.adminAddProfitScene,
+            payoutDetails_scene_1.payoutDetailsScene,
             profitReport_scene_1.profitReportScene,
             withdrawRequest_scene_1.withdrawRequestScene,
         ]);

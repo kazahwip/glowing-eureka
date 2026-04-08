@@ -5,6 +5,7 @@ import { showWithdrawRequestsScreen } from "../../handlers/teambot/views";
 import { adminWithdrawRequestKeyboard } from "../../keyboards/admin";
 import { getTeambotTelegram } from "../../services/bot-clients.service";
 import { createWithdrawRequest } from "../../services/withdraw-requests.service";
+import { getUserById } from "../../services/users.service";
 import type { AppContext } from "../../types/context";
 import { escapeHtml, formatMoney, formatUserLabel } from "../../utils/text";
 import { parsePositiveNumber } from "../../utils/validators";
@@ -100,33 +101,18 @@ export const withdrawRequestScene = new Scenes.WizardScene<AppContext>(
       return;
     }
 
+    const freshUser = await getUserById(user.id);
+    const payoutDetails = freshUser?.payout_details?.trim() ?? "";
+    if (!freshUser || !payoutDetails) {
+      await closeSceneToWithdraw(
+        ctx,
+        "Сначала заполните реквизиты через кнопку «💳 Реквизиты для выплаты», затем создайте заявку ещё раз.",
+      );
+      return;
+    }
+
     ctx.session.withdrawRequestDraft = { amount };
-    await ctx.reply(
-      "Введите реквизиты для выплаты одним сообщением. Например: номер карты, банк и имя получателя.",
-      cancelKeyboard,
-    );
-    return ctx.wizard.next();
-  },
-  async (ctx) => {
-    if (!ctx.message || !("text" in ctx.message)) {
-      await ctx.reply("Введите реквизиты текстом.");
-      return;
-    }
-
-    if (ctx.message.text === CANCEL_BUTTON) {
-      await closeSceneToWithdraw(ctx, "Создание заявки на вывод отменено.");
-      return;
-    }
-
-    const draft = ctx.session.withdrawRequestDraft;
-    const user = ctx.state.user;
-    const payoutDetails = ctx.message.text.trim();
-    if (!user || !draft?.amount || !payoutDetails) {
-      await closeSceneToWithdraw(ctx, "Не удалось создать заявку. Попробуйте ещё раз.");
-      return;
-    }
-
-    const result = await createWithdrawRequest(user.id, draft.amount, payoutDetails);
+    const result = await createWithdrawRequest(user.id, amount, payoutDetails);
     if (result.status === "insufficient_balance") {
       await closeSceneToWithdraw(ctx, "Недостаточно доступного баланса для новой заявки.");
       return;
@@ -137,17 +123,18 @@ export const withdrawRequestScene = new Scenes.WizardScene<AppContext>(
       return;
     }
 
-    await notifyAdminsAboutWithdrawRequest(ctx, result.request.id, draft.amount, payoutDetails);
+    await notifyAdminsAboutWithdrawRequest(ctx, result.request.id, amount, payoutDetails);
     if (ctx.state.user) {
       ctx.state.user = {
         ...ctx.state.user,
-        withdrawable_balance: Math.max(0, ctx.state.user.withdrawable_balance - draft.amount),
+        payout_details: payoutDetails,
+        withdrawable_balance: Math.max(0, ctx.state.user.withdrawable_balance - amount),
       };
     }
 
     await closeSceneToWithdraw(
       ctx,
-      `Заявка #${result.request.id} на ${formatMoney(draft.amount)} создана и отправлена админам на рассмотрение.`,
+      `Заявка #${result.request.id} на ${formatMoney(amount)} создана и отправлена админам на рассмотрение.`,
     );
   },
 );

@@ -53,6 +53,10 @@ async function ensureUserColumns(db: Database<sqlite3.Database, sqlite3.Statemen
     await db.exec("ALTER TABLE users ADD COLUMN withdrawable_balance REAL NOT NULL DEFAULT 0;");
   }
 
+  if (!columnNames.has("payout_details")) {
+    await db.exec("ALTER TABLE users ADD COLUMN payout_details TEXT NULL;");
+  }
+
   if (!columnNames.has("signal_new_referrals")) {
     await db.exec("ALTER TABLE users ADD COLUMN signal_new_referrals INTEGER NOT NULL DEFAULT 1;");
   }

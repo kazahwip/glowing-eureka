@@ -12,7 +12,7 @@ function roundMoney(value: number) {
   return Math.round(value * 100) / 100;
 }
 
-export async function createProfitReport(userId: number, amount: number, payoutDetails: string) {
+export async function createProfitReport(userId: number, amount: number) {
   const db = await getDb();
   const roundedAmount = roundMoney(amount);
 
@@ -25,7 +25,7 @@ export async function createProfitReport(userId: number, amount: number, payoutD
      VALUES (?, ?, ?, 'pending')`,
     userId,
     roundedAmount,
-    payoutDetails.trim(),
+    "",
   );
 
   return {

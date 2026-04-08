@@ -13,6 +13,7 @@ import { adminProjectStatsScene } from "../scenes/teambot/adminProjectStats.scen
 import { adminTransferScene } from "../scenes/teambot/adminTransfer.scene";
 import { adminUserSearchScene } from "../scenes/teambot/adminUserSearch.scene";
 import { teamCreateCardScene } from "../scenes/teambot/createCard.scene";
+import { payoutDetailsScene } from "../scenes/teambot/payoutDetails.scene";
 import { profitReportScene } from "../scenes/teambot/profitReport.scene";
 import { withdrawRequestScene } from "../scenes/teambot/withdrawRequest.scene";
 import { createDefaultSession, type AppContext } from "../types/context";
@@ -46,6 +47,7 @@ export async function launchTeambot(): Promise<RunningTeambot> {
       adminCuratorUnassignScene,
       adminBroadcastScene,
       adminAddProfitScene,
+      payoutDetailsScene,
       profitReportScene,
       withdrawRequestScene,
     ]);

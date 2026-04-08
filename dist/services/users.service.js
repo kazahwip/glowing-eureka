@@ -10,6 +10,7 @@ exports.registerServicebotUser = registerServicebotUser;
 exports.grantWorkerAccess = grantWorkerAccess;
 exports.setUserReferrer = setUserReferrer;
 exports.incrementUserBalance = incrementUserBalance;
+exports.updateUserPayoutDetails = updateUserPayoutDetails;
 exports.updateWorkerSignalSetting = updateWorkerSignalSetting;
 exports.searchUsers = searchUsers;
 exports.listRecentUsers = listRecentUsers;
@@ -105,6 +106,11 @@ async function setUserReferrer(userId, workerUserId) {
 async function incrementUserBalance(userId, amount) {
     const db = await (0, client_1.getDb)();
     await db.run("UPDATE users SET balance = balance + ? WHERE id = ?", amount, userId);
+    return getUserById(userId);
+}
+async function updateUserPayoutDetails(userId, payoutDetails) {
+    const db = await (0, client_1.getDb)();
+    await db.run("UPDATE users SET payout_details = ? WHERE id = ?", payoutDetails.trim() || null, userId);
     return getUserById(userId);
 }
 async function updateWorkerSignalSetting(userId, category, enabled) {

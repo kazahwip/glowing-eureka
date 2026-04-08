@@ -18,6 +18,7 @@ export interface User {
   referred_by_user_id: number | null;
   balance: number;
   withdrawable_balance: number;
+  payout_details: string | null;
   total_profit: number;
   avg_profit: number;
   best_profit: number;

@@ -24,7 +24,7 @@ async function closeSceneToWithdraw(ctx: AppContext, notice?: string) {
   await showWithdrawRequestsScreen(ctx);
 }
 
-async function notifyAdminsAboutProfitReport(ctx: AppContext, requestId: number, amount: number, payoutDetails: string) {
+async function notifyAdminsAboutProfitReport(ctx: AppContext, requestId: number, amount: number) {
   if (!ctx.from || !ctx.state.user) {
     return;
   }
@@ -35,8 +35,8 @@ async function notifyAdminsAboutProfitReport(ctx: AppContext, requestId: number,
     `Воркер: ${escapeHtml(formatUserLabel(ctx.state.user))}`,
     `Telegram ID: <code>${ctx.from.id}</code>${ctx.from.username ? ` (@${escapeHtml(ctx.from.username)})` : ""}`,
     `Сумма профита: ${formatMoney(amount)}`,
-    `Реквизиты для выплаты: ${escapeHtml(payoutDetails)}`,
     "",
+    "Подтверждение админом добавит профит в баланс AWAKE BOT и зачтёт его в кассу проекта.",
     "Выберите, как зачесть профит в кассу проекта.",
   ].join("\n");
 
@@ -77,39 +77,19 @@ export const profitReportScene = new Scenes.WizardScene<AppContext>(
       return;
     }
 
-    ctx.session.profitReportDraft = { amount };
-    await ctx.reply(
-      "Введите реквизиты для выплаты одним сообщением. Можно указать телефон, номер карты и банк без дополнительной проверки формата.",
-      cancelKeyboard,
-    );
-    return ctx.wizard.next();
-  },
-  async (ctx) => {
-    if (!ctx.message || !("text" in ctx.message)) {
-      await ctx.reply("Введите реквизиты текстом.");
-      return;
-    }
-
-    if (ctx.message.text === CANCEL_BUTTON) {
-      await closeSceneToWithdraw(ctx, "Отправка профита на проверку отменена.");
-      return;
-    }
-
     const user = ctx.state.user;
-    const amount = ctx.session.profitReportDraft?.amount;
-    const payoutDetails = ctx.message.text.trim();
-    if (!user || !amount || !payoutDetails) {
+    if (!user) {
       await closeSceneToWithdraw(ctx, "Не удалось создать заявку о профите. Попробуйте ещё раз.");
       return;
     }
 
-    const result = await createProfitReport(user.id, amount, payoutDetails);
+    const result = await createProfitReport(user.id, amount);
     if (result.status !== "created" || !result.request) {
       await closeSceneToWithdraw(ctx, "Не удалось создать заявку о профите. Попробуйте ещё раз.");
       return;
     }
 
-    await notifyAdminsAboutProfitReport(ctx, result.request.id, amount, payoutDetails);
+    await notifyAdminsAboutProfitReport(ctx, result.request.id, amount);
     await closeSceneToWithdraw(
       ctx,
       `Заявка о профите #${result.request.id} на ${formatMoney(amount)} отправлена администратору на проверку.`,

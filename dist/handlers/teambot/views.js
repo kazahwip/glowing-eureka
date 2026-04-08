@@ -74,7 +74,7 @@ function buildSignalSettingsText() {
 }
 function getWithdrawStatusLabel(status) {
     if (status === "approved") {
-        return "✅ Подтверждена";
+        return "⏳ На выплате";
     }
     if (status === "paid") {
         return "💸 Выплачена";
@@ -83,6 +83,16 @@ function getWithdrawStatusLabel(status) {
         return "❌ Отклонена";
     }
     return "⏳ На проверке";
+}
+function summarizePayoutDetails(value) {
+    if (!value) {
+        return "не заполнены";
+    }
+    const compact = value.replace(/\s+/g, " ").trim();
+    if (compact.length <= 70) {
+        return compact;
+    }
+    return `${compact.slice(0, 67)}...`;
 }
 async function showTeambotHome(ctx) {
     const cleanupMessage = await ctx.reply(".", telegraf_1.Markup.removeKeyboard()).catch(() => null);
@@ -186,8 +196,8 @@ async function showWithdrawRequestsScreen(ctx) {
         "<b>💸 Заявка на вывод</b>",
         "",
         `Доступно для вывода: ${(0, text_1.formatMoney)(user.withdrawable_balance)}`,
-        `Ожидает проверки: ${summary.pendingCount} шт. • ${(0, text_1.formatMoney)(summary.pendingAmount)}`,
-        `Подтверждено админом: ${(0, text_1.formatMoney)(summary.approvedAmount)}`,
+        `Реквизиты для выплаты: ${(0, text_1.escapeHtml)(summarizePayoutDetails(user.payout_details))}`,
+        `На выплате: ${summary.processingCount} шт. • ${(0, text_1.formatMoney)(summary.processingAmount)}`,
         `Уже выплачено: ${(0, text_1.formatMoney)(summary.paidAmount)}`,
     ];
     if (user.role === "admin") {

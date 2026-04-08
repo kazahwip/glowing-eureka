@@ -91,15 +91,13 @@ export async function listRecentWithdrawRequestsByUser(userId: number, limit = 5
 export async function getWithdrawRequestSummary(userId: number) {
   const db = await getDb();
   const row = await db.get<{
-    pendingCount: number;
-    pendingAmount: number;
-    approvedAmount: number;
+    processingCount: number;
+    processingAmount: number;
     paidAmount: number;
   }>(
     `SELECT
-      SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pendingCount,
-      ROUND(COALESCE(SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END), 0), 2) AS pendingAmount,
-      ROUND(COALESCE(SUM(CASE WHEN status = 'approved' THEN amount ELSE 0 END), 0), 2) AS approvedAmount,
+      SUM(CASE WHEN status IN ('pending', 'approved') THEN 1 ELSE 0 END) AS processingCount,
+      ROUND(COALESCE(SUM(CASE WHEN status IN ('pending', 'approved') THEN amount ELSE 0 END), 0), 2) AS processingAmount,
       ROUND(COALESCE(SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END), 0), 2) AS paidAmount
      FROM withdraw_requests
      WHERE user_id = ?`,
@@ -107,33 +105,10 @@ export async function getWithdrawRequestSummary(userId: number) {
   );
 
   return {
-    pendingCount: row?.pendingCount ?? 0,
-    pendingAmount: row?.pendingAmount ?? 0,
-    approvedAmount: row?.approvedAmount ?? 0,
+    processingCount: row?.processingCount ?? 0,
+    processingAmount: row?.processingAmount ?? 0,
     paidAmount: row?.paidAmount ?? 0,
   };
-}
-
-export async function approveWithdrawRequest(requestId: number, adminUserId: number) {
-  const db = await getDb();
-  const request = await db.get<WithdrawRequest>("SELECT * FROM withdraw_requests WHERE id = ?", requestId);
-  if (!request) {
-    return { status: "missing" as const, request: null };
-  }
-
-  if (request.status !== "pending") {
-    return { status: "processed" as const, request: await getWithdrawRequestWithUser(requestId) };
-  }
-
-  await db.run(
-    `UPDATE withdraw_requests
-     SET status = 'approved', admin_user_id = ?, reviewed_at = CURRENT_TIMESTAMP
-     WHERE id = ?`,
-    adminUserId,
-    requestId,
-  );
-
-  return { status: "approved" as const, request: await getWithdrawRequestWithUser(requestId) };
 }
 
 export async function markWithdrawRequestPaid(requestId: number, adminUserId: number) {
@@ -147,8 +122,8 @@ export async function markWithdrawRequestPaid(requestId: number, adminUserId: nu
     return { status: "processed" as const, request: await getWithdrawRequestWithUser(requestId) };
   }
 
-  if (request.status !== "approved") {
-    return { status: "not_approved" as const, request: await getWithdrawRequestWithUser(requestId) };
+  if (!["pending", "approved"].includes(request.status)) {
+    return { status: "processed" as const, request: await getWithdrawRequestWithUser(requestId) };
   }
 
   await db.run(

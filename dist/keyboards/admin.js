@@ -142,11 +142,7 @@ function adminPaymentRequestKeyboard(requestId) {
 }
 function adminWithdrawRequestKeyboard(requestId) {
     return telegraf_1.Markup.inlineKeyboard([
-        [
-            telegraf_1.Markup.button.callback("✅ Принять", `admin:withdraw-request:${requestId}:approve`),
-            telegraf_1.Markup.button.callback("💸 Выплачено", `admin:withdraw-request:${requestId}:paid`),
-            telegraf_1.Markup.button.callback("❌ Отклонить", `admin:withdraw-request:${requestId}:reject`),
-        ],
+        [telegraf_1.Markup.button.callback("💸 Выплачено", `admin:withdraw-request:${requestId}:paid`)],
     ]);
 }
 function adminProfitReportKeyboard(requestId) {

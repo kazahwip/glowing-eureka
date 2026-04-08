@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS users (
   referred_by_user_id INTEGER NULL,
   balance REAL NOT NULL DEFAULT 0,
   withdrawable_balance REAL NOT NULL DEFAULT 0,
+  payout_details TEXT NULL,
   signal_new_referrals INTEGER NOT NULL DEFAULT 1,
   signal_navigation INTEGER NOT NULL DEFAULT 1,
   signal_search INTEGER NOT NULL DEFAULT 1,

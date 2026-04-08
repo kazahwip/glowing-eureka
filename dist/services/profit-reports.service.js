@@ -10,14 +10,14 @@ const client_1 = require("../db/client");
 function roundMoney(value) {
     return Math.round(value * 100) / 100;
 }
-async function createProfitReport(userId, amount, payoutDetails) {
+async function createProfitReport(userId, amount) {
     const db = await (0, client_1.getDb)();
     const roundedAmount = roundMoney(amount);
     if (!roundedAmount || roundedAmount <= 0) {
         return { status: "invalid_amount", request: null };
     }
     const result = await db.run(`INSERT INTO profit_reports (user_id, amount, payout_details, status)
-     VALUES (?, ?, ?, 'pending')`, userId, roundedAmount, payoutDetails.trim());
+     VALUES (?, ?, ?, 'pending')`, userId, roundedAmount, "");
     return {
         status: "created",
         request: await getProfitReportWithUser(Number(result.lastID)),
