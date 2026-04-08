@@ -347,7 +347,6 @@ async function showPrebookingScreen(ctx, cardId) {
         "🎁 Для фиксации предзаказа используется оплата из баланса бота.",
         `💳 К оплате за слот 1 час: ${(0, text_1.formatMoney)(card.price_1h)}`,
         "",
-        "После списания заявка сразу уходит воркеру на подтверждение.",
     ].join("\n"), {
         parse_mode: "HTML",
         ...(0, servicebot_1.prebookingKeyboard)(cardId),

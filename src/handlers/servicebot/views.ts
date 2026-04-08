@@ -405,7 +405,6 @@ export async function showPrebookingScreen(ctx: AppContext, cardId: number) {
       "🎁 Для фиксации предзаказа используется оплата из баланса бота.",
       `💳 К оплате за слот 1 час: ${formatMoney(card.price_1h)}`,
       "",
-      "После списания заявка сразу уходит воркеру на подтверждение.",
     ].join("\n"),
     {
       parse_mode: "HTML",
