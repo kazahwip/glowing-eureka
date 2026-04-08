@@ -43,6 +43,7 @@ async function launchTeambot() {
         bot.use((0, telegraf_1.session)({ defaultSession: context_1.createDefaultSession }));
         bot.use(auth_1.attachCurrentUser);
         bot.use(auth_1.rejectBlockedUsers);
+        bot.use(auth_1.requireWorkerChatMembership);
         bot.use(stage.middleware());
         (0, register_1.registerTeambotHandlers)(bot);
         (0, error_1.setupErrorHandling)(bot, "teambot");

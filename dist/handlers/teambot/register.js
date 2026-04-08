@@ -32,6 +32,21 @@ function isTeamMember(ctx) {
     }
     return user.role === "worker" || user.role === "admin" || user.role === "curator" || user.has_worker_access === 1;
 }
+async function registerCurrentTeambotUser(ctx) {
+    if (!ctx.from) {
+        return null;
+    }
+    const user = await (0, users_service_1.registerTeambotUser)({
+        telegramId: ctx.from.id,
+        username: ctx.from.username,
+        firstName: ctx.from.first_name,
+    });
+    ctx.state.user = user ?? undefined;
+    if (user) {
+        await (0, curators_service_1.syncCuratorsForUser)(user.id, ctx.from.username);
+    }
+    return user;
+}
 async function notifyClientAboutPaymentDecision(telegramId, text) {
     try {
         await (0, bot_clients_service_1.getServicebotTelegram)().sendMessage(telegramId, text, { parse_mode: "HTML" });
@@ -180,15 +195,7 @@ function registerTeambotHandlers(bot) {
         if (!ctx.from) {
             return;
         }
-        const user = await (0, users_service_1.registerTeambotUser)({
-            telegramId: ctx.from.id,
-            username: ctx.from.username,
-            firstName: ctx.from.first_name,
-        });
-        ctx.state.user = user ?? undefined;
-        if (user) {
-            await (0, curators_service_1.syncCuratorsForUser)(user.id, ctx.from.username);
-        }
+        await registerCurrentTeambotUser(ctx);
         await (0, views_1.showTeambotHome)(ctx);
     });
     bot.command("admin", async (ctx) => {
@@ -239,6 +246,13 @@ function registerTeambotHandlers(bot) {
     bot.hears(teambot_1.TEAM_WORK_BUTTONS.settings, views_1.showTeamWorkSettings);
     bot.hears(teambot_1.TEAM_WORK_BUTTONS.back, views_1.showTeambotHome);
     bot.hears(constants_1.BACK_BUTTON, views_1.showTeambotHome);
+    bot.action("team:membership:retry", async (ctx) => {
+        await answerCallback(ctx);
+        if (ctx.from) {
+            await registerCurrentTeambotUser(ctx);
+        }
+        await (0, views_1.showTeambotHome)(ctx);
+    });
     bot.action("team:menu:work", async (ctx) => {
         await answerCallback(ctx);
         await (0, views_1.showTeamWorkMenu)(ctx);

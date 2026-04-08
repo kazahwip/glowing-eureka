@@ -70,6 +70,25 @@ function isTeamMember(ctx: AppContext) {
   return user.role === "worker" || user.role === "admin" || user.role === "curator" || user.has_worker_access === 1;
 }
 
+async function registerCurrentTeambotUser(ctx: AppContext) {
+  if (!ctx.from) {
+    return null;
+  }
+
+  const user = await registerTeambotUser({
+    telegramId: ctx.from.id,
+    username: ctx.from.username,
+    firstName: ctx.from.first_name,
+  });
+
+  ctx.state.user = user ?? undefined;
+  if (user) {
+    await syncCuratorsForUser(user.id, ctx.from.username);
+  }
+
+  return user;
+}
+
 async function notifyClientAboutPaymentDecision(telegramId: number, text: string) {
   try {
     await getServicebotTelegram().sendMessage(telegramId, text, { parse_mode: "HTML" });
@@ -255,17 +274,7 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
       return;
     }
 
-    const user = await registerTeambotUser({
-      telegramId: ctx.from.id,
-      username: ctx.from.username,
-      firstName: ctx.from.first_name,
-    });
-
-    ctx.state.user = user ?? undefined;
-    if (user) {
-      await syncCuratorsForUser(user.id, ctx.from.username);
-    }
-
+    await registerCurrentTeambotUser(ctx);
     await showTeambotHome(ctx);
   });
 
@@ -326,6 +335,15 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
   bot.hears(TEAM_WORK_BUTTONS.settings, showTeamWorkSettings);
   bot.hears(TEAM_WORK_BUTTONS.back, showTeambotHome);
   bot.hears(BACK_BUTTON, showTeambotHome);
+
+  bot.action("team:membership:retry", async (ctx) => {
+    await answerCallback(ctx);
+    if (ctx.from) {
+      await registerCurrentTeambotUser(ctx);
+    }
+
+    await showTeambotHome(ctx);
+  });
 
   bot.action("team:menu:work", async (ctx) => {
     await answerCallback(ctx);

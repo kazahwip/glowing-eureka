@@ -2,7 +2,7 @@ import { Scenes, Telegraf, session } from "telegraf";
 import { config } from "../config/env";
 import { getDb } from "../db/client";
 import { registerTeambotHandlers } from "../handlers/teambot/register";
-import { attachBotKind, attachCurrentUser, rejectBlockedUsers } from "../middlewares/auth";
+import { attachBotKind, attachCurrentUser, rejectBlockedUsers, requireWorkerChatMembership } from "../middlewares/auth";
 import { setupErrorHandling } from "../middlewares/error";
 import { adminBroadcastScene } from "../scenes/teambot/adminBroadcast.scene";
 import { adminAddProfitScene } from "../scenes/teambot/adminAddProfit.scene";
@@ -50,6 +50,7 @@ export async function launchTeambot(): Promise<RunningTeambot> {
     bot.use(session({ defaultSession: createDefaultSession }));
     bot.use(attachCurrentUser);
     bot.use(rejectBlockedUsers);
+    bot.use(requireWorkerChatMembership);
     bot.use(stage.middleware());
 
     registerTeambotHandlers(bot);
