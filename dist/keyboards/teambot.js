@@ -52,13 +52,11 @@ function teamWorkKeyboard() {
         [exports.TEAM_WORK_BUTTONS.back],
     ]).resize();
 }
-function withdrawRequestKeyboard(canCreate) {
+function withdrawRequestKeyboard() {
     const rows = [];
-    if (canCreate) {
-        rows.push([telegraf_1.Markup.button.callback("📝 Создать заявку", "team:withdraw:create")]);
-    }
+    rows.push([telegraf_1.Markup.button.callback("💳 Заявка на выплату", "team:withdraw:create")]);
     rows.push([telegraf_1.Markup.button.callback("💳 Реквизиты для выплаты", "team:withdraw:payout-details")]);
-    rows.push([telegraf_1.Markup.button.callback("💸 Сообщить о профите", "team:profit-report:create")]);
+    rows.push([telegraf_1.Markup.button.callback("📈 Сообщить о профите", "team:profit-report:create")]);
     rows.push([telegraf_1.Markup.button.callback("🔄 Обновить", "team:withdraw:refresh")], [telegraf_1.Markup.button.callback("⬅️ Назад", "team:withdraw:back")]);
     return telegraf_1.Markup.inlineKeyboard(rows);
 }

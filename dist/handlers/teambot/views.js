@@ -199,6 +199,9 @@ async function showWithdrawRequestsScreen(ctx) {
         `Реквизиты для выплаты: ${(0, text_1.escapeHtml)(summarizePayoutDetails(user.payout_details))}`,
         `На выплате: ${summary.processingCount} шт. • ${(0, text_1.formatMoney)(summary.processingAmount)}`,
         `Уже выплачено: ${(0, text_1.formatMoney)(summary.paidAmount)}`,
+        "",
+        "💳 Заявка на выплату — создаёт запрос на выплату по сохранённым реквизитам.",
+        "📈 Сообщить о профите — отправляет профит админу на подтверждение и зачёт в кассу проекта.",
     ];
     if (user.role === "admin") {
         payoutLines.push("Доля администратора: 100% от подтвержденной оплаты.", "Кураторская доля для админского профита не применяется.");
@@ -219,7 +222,7 @@ async function showWithdrawRequestsScreen(ctx) {
     }
     await ctx.reply(payoutLines.join("\n"), {
         parse_mode: "HTML",
-        ...(0, teambot_1.withdrawRequestKeyboard)(user.withdrawable_balance > 0),
+        ...(0, teambot_1.withdrawRequestKeyboard)(),
     });
 }
 async function showCuratorsScreen(ctx) {

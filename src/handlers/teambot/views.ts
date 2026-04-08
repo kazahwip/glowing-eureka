@@ -234,6 +234,9 @@ export async function showWithdrawRequestsScreen(ctx: AppContext) {
     `Реквизиты для выплаты: ${escapeHtml(summarizePayoutDetails(user.payout_details))}`,
     `На выплате: ${summary.processingCount} шт. • ${formatMoney(summary.processingAmount)}`,
     `Уже выплачено: ${formatMoney(summary.paidAmount)}`,
+    "",
+    "💳 Заявка на выплату — создаёт запрос на выплату по сохранённым реквизитам.",
+    "📈 Сообщить о профите — отправляет профит админу на подтверждение и зачёт в кассу проекта.",
   ];
 
   if (user.role === "admin") {
@@ -265,7 +268,7 @@ export async function showWithdrawRequestsScreen(ctx: AppContext) {
 
   await ctx.reply(payoutLines.join("\n"), {
     parse_mode: "HTML",
-    ...withdrawRequestKeyboard(user.withdrawable_balance > 0),
+    ...withdrawRequestKeyboard(),
   });
 }
 export async function showCuratorsScreen(ctx: AppContext) {
