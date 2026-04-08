@@ -9,6 +9,7 @@ export function adminHomeKeyboard() {
     [Markup.button.callback("🧑‍💼 Кураторы", "admin:curators")],
     [Markup.button.callback("💳 Реквизиты", "admin:transfer")],
     [Markup.button.callback("📈 Статистика проекта", "admin:project-stats")],
+    [Markup.button.callback("💸 Добавить профит", "admin:add-profit")],
     [Markup.button.callback("📣 Рассылка", "admin:broadcast")],
     [Markup.button.callback("🗂 Логи", "admin:logs")],
     [Markup.button.callback("✖️ Закрыть", "admin:close")],
@@ -128,6 +129,7 @@ export function adminCuratorActionsKeyboard(curatorId: number, telegramUsername?
 export function adminProjectStatsKeyboard() {
   return Markup.inlineKeyboard([
     [Markup.button.callback("✏️ Редактировать вручную", "admin:project-stats:edit")],
+    [Markup.button.callback("💸 Добавить профит", "admin:add-profit")],
     [Markup.button.callback("🔄 Пересчитать из БД", "admin:project-stats:recalc")],
     [Markup.button.callback("⬅️ Назад", "admin:home")],
   ]);

@@ -32,6 +32,36 @@ async function resolveCuratorUserId(
   return row?.curatorUserId ?? null;
 }
 
+async function resolveProfitShares(
+  db: Database<sqlite3.Database, sqlite3.Statement>,
+  workerUserId: number | null,
+  amount: number,
+) {
+  if (!workerUserId) {
+    return {
+      workerShareAmount: 0,
+      curatorUserId: null as number | null,
+      curatorShareAmount: 0,
+    };
+  }
+
+  const worker = await db.get<{ role: string | null }>("SELECT role FROM users WHERE id = ?", workerUserId);
+  if (worker?.role === "admin") {
+    return {
+      workerShareAmount: roundMoney(amount),
+      curatorUserId: null as number | null,
+      curatorShareAmount: 0,
+    };
+  }
+
+  const curatorUserId = await resolveCuratorUserId(db, workerUserId);
+  return {
+    workerShareAmount: roundMoney(amount * 0.25),
+    curatorUserId,
+    curatorShareAmount: curatorUserId ? roundMoney(amount * 0.1) : 0,
+  };
+}
+
 async function refreshUserProfitStats(db: Database<sqlite3.Database, sqlite3.Statement>, userId: number) {
   const row = await db.get<{
     totalProfit: number;
@@ -85,9 +115,10 @@ export async function createPaymentRequest(
        amount,
        receipt_file_id,
        comment,
+       source,
        status
      )
-     VALUES (?, ?, 0, NULL, 0, ?, ?, ?, 'pending')`,
+     VALUES (?, ?, 0, NULL, 0, ?, ?, ?, 'honeybunny', 'pending')`,
     userId,
     workerUserId ?? null,
     amount,
@@ -134,9 +165,11 @@ export async function approvePaymentRequest(requestId: number, adminUserId: numb
       return { status: "processed" as const, request: await getPaymentRequestWithUser(requestId) };
     }
 
-    const workerShareAmount = request.worker_user_id ? roundMoney(request.amount * 0.25) : 0;
-    const curatorUserId = await resolveCuratorUserId(db, request.worker_user_id);
-    const curatorShareAmount = curatorUserId ? roundMoney(request.amount * 0.1) : 0;
+    const { workerShareAmount, curatorUserId, curatorShareAmount } = await resolveProfitShares(
+      db,
+      request.worker_user_id,
+      request.amount,
+    );
 
     await db.run(
       `UPDATE payment_requests
@@ -192,4 +225,65 @@ export async function rejectPaymentRequest(requestId: number, adminUserId: numbe
   );
 
   return { status: "rejected" as const, request: await getPaymentRequestWithUser(requestId) };
+}
+
+export async function createManualProfit(adminUserId: number, workerUserId: number, amount: number, comment?: string) {
+  const db = await getDb();
+  await db.exec("BEGIN");
+
+  try {
+    const worker = await db.get<{ id: number }>("SELECT id FROM users WHERE id = ?", workerUserId);
+    if (!worker) {
+      await db.exec("ROLLBACK");
+      return { status: "worker_missing" as const, request: null };
+    }
+
+    const { workerShareAmount, curatorUserId, curatorShareAmount } = await resolveProfitShares(
+      db,
+      workerUserId,
+      amount,
+    );
+
+    const result = await db.run(
+      `INSERT INTO payment_requests (
+         user_id,
+         worker_user_id,
+         worker_share_amount,
+         curator_user_id,
+         curator_share_amount,
+         amount,
+         receipt_file_id,
+         comment,
+         source,
+         status,
+         admin_user_id,
+         reviewed_at
+       )
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'direct_transfer', 'approved', ?, CURRENT_TIMESTAMP)`,
+      workerUserId,
+      workerUserId,
+      workerShareAmount,
+      curatorUserId,
+      curatorShareAmount,
+      amount,
+      '__manual_profit__',
+      comment?.trim() || null,
+      adminUserId,
+    );
+
+    await refreshUserProfitStats(db, workerUserId);
+    if (curatorUserId) {
+      await refreshUserProfitStats(db, curatorUserId);
+    }
+
+    await db.exec("COMMIT");
+
+    return {
+      status: "created" as const,
+      request: await getPaymentRequestWithUser(Number(result.lastID)),
+    };
+  } catch (error) {
+    await db.exec("ROLLBACK");
+    throw error;
+  }
 }

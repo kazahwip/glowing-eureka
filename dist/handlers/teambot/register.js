@@ -11,6 +11,7 @@ const curators_service_1 = require("../../services/curators.service");
 const kassa_service_1 = require("../../services/kassa.service");
 const logging_service_1 = require("../../services/logging.service");
 const payment_requests_service_1 = require("../../services/payment-requests.service");
+const project_profits_service_1 = require("../../services/project-profits.service");
 const settings_service_1 = require("../../services/settings.service");
 const users_service_1 = require("../../services/users.service");
 const date_1 = require("../../utils/date");
@@ -618,6 +619,13 @@ function registerTeambotHandlers(bot) {
         }
         await (0, views_1.showAdminProjectStats)(ctx);
     });
+    bot.action("admin:add-profit", async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx)) {
+            return;
+        }
+        await ctx.scene.enter("admin-add-profit");
+    });
     bot.action("admin:project-stats:edit", async (ctx) => {
         await answerCallback(ctx);
         if (!isAdmin(ctx)) {
@@ -662,7 +670,7 @@ function registerTeambotHandlers(bot) {
                 `На баланс зачислено ${result.request.amount.toFixed(2)} RUB.`,
                 "Проверьте профиль в Honey Bunny.",
             ].join("\n"));
-            await notifyWorkerChatAboutProfitFormatted(result.request);
+            await (0, project_profits_service_1.notifyWorkerChatAboutProfit)(result.request);
             await ctx.reply(`Заявка #${requestId} принята. Баланс клиента пополнен.`);
         }
         if (decision === "reject" && result.request) {

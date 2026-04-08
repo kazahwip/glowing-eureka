@@ -8,6 +8,7 @@ const register_1 = require("../handlers/teambot/register");
 const auth_1 = require("../middlewares/auth");
 const error_1 = require("../middlewares/error");
 const adminBroadcast_scene_1 = require("../scenes/teambot/adminBroadcast.scene");
+const adminAddProfit_scene_1 = require("../scenes/teambot/adminAddProfit.scene");
 const adminCuratorAdd_scene_1 = require("../scenes/teambot/adminCuratorAdd.scene");
 const adminCuratorAssign_scene_1 = require("../scenes/teambot/adminCuratorAssign.scene");
 const adminCuratorUnassign_scene_1 = require("../scenes/teambot/adminCuratorUnassign.scene");
@@ -36,6 +37,7 @@ async function launchTeambot() {
             adminCuratorAssign_scene_1.adminCuratorAssignScene,
             adminCuratorUnassign_scene_1.adminCuratorUnassignScene,
             adminBroadcast_scene_1.adminBroadcastScene,
+            adminAddProfit_scene_1.adminAddProfitScene,
         ]);
         bot.use((0, auth_1.attachBotKind)("teambot"));
         bot.use((0, telegraf_1.session)({ defaultSession: context_1.createDefaultSession }));

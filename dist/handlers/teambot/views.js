@@ -165,17 +165,21 @@ async function showWithdrawRequestsScreen(ctx) {
         return;
     }
     const currentCurator = user.curator_id ? await (0, curators_service_1.getCuratorById)(user.curator_id) : null;
-    await ctx.reply([
+    const payoutLines = [
         "<b>💸 Заявка на вывод</b>",
         "",
         `Доступно для вывода: ${(0, text_1.formatMoney)(user.withdrawable_balance)}`,
-        "Доля воркера: 25% от подтвержденной оплаты.",
-        currentCurator
+    ];
+    if (user.role === "admin") {
+        payoutLines.push("Доля администратора: 100% от подтвержденной оплаты.", "Кураторская доля для админского профита не применяется.");
+    }
+    else {
+        payoutLines.push("Доля воркера: 25% от подтвержденной оплаты.", currentCurator
             ? `Доля куратора ${(0, text_1.escapeHtml)(currentCurator.name)}: 10% от подтвержденной оплаты.`
-            : "Если будет назначен куратор, его доля составит 10%.",
-        "",
-        "Экран вывода подготовлен. Здесь отображается доступный баланс teambot.",
-    ].join("\n"), {
+            : "Если будет назначен куратор, его доля составит 10%.");
+    }
+    payoutLines.push("", "Экран вывода подготовлен. Здесь отображается доступный баланс teambot.");
+    await ctx.reply(payoutLines.join("\n"), {
         parse_mode: "HTML",
         ...(0, teambot_1.teambotBackKeyboard)(),
     });

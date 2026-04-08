@@ -24,6 +24,7 @@ function adminHomeKeyboard() {
         [telegraf_1.Markup.button.callback("🧑‍💼 Кураторы", "admin:curators")],
         [telegraf_1.Markup.button.callback("💳 Реквизиты", "admin:transfer")],
         [telegraf_1.Markup.button.callback("📈 Статистика проекта", "admin:project-stats")],
+        [telegraf_1.Markup.button.callback("💸 Добавить профит", "admin:add-profit")],
         [telegraf_1.Markup.button.callback("📣 Рассылка", "admin:broadcast")],
         [telegraf_1.Markup.button.callback("🗂 Логи", "admin:logs")],
         [telegraf_1.Markup.button.callback("✖️ Закрыть", "admin:close")],
@@ -109,6 +110,7 @@ function adminCuratorActionsKeyboard(curatorId, telegramUsername) {
 function adminProjectStatsKeyboard() {
     return telegraf_1.Markup.inlineKeyboard([
         [telegraf_1.Markup.button.callback("✏️ Редактировать вручную", "admin:project-stats:edit")],
+        [telegraf_1.Markup.button.callback("💸 Добавить профит", "admin:add-profit")],
         [telegraf_1.Markup.button.callback("🔄 Пересчитать из БД", "admin:project-stats:recalc")],
         [telegraf_1.Markup.button.callback("⬅️ Назад", "admin:home")],
     ]);

@@ -5,6 +5,7 @@ import { registerTeambotHandlers } from "../handlers/teambot/register";
 import { attachBotKind, attachCurrentUser, rejectBlockedUsers } from "../middlewares/auth";
 import { setupErrorHandling } from "../middlewares/error";
 import { adminBroadcastScene } from "../scenes/teambot/adminBroadcast.scene";
+import { adminAddProfitScene } from "../scenes/teambot/adminAddProfit.scene";
 import { adminCuratorAddScene } from "../scenes/teambot/adminCuratorAdd.scene";
 import { adminCuratorAssignScene } from "../scenes/teambot/adminCuratorAssign.scene";
 import { adminCuratorUnassignScene } from "../scenes/teambot/adminCuratorUnassign.scene";
@@ -42,6 +43,7 @@ export async function launchTeambot(): Promise<RunningTeambot> {
       adminCuratorAssignScene,
       adminCuratorUnassignScene,
       adminBroadcastScene,
+      adminAddProfitScene,
     ]);
 
     bot.use(attachBotKind("teambot"));

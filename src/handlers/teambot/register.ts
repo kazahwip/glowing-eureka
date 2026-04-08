@@ -16,6 +16,7 @@ import {
 import { getKassaSummary, getTopWorkers } from "../../services/kassa.service";
 import { logAdminAction } from "../../services/logging.service";
 import { approvePaymentRequest, rejectPaymentRequest, type PaymentRequestWithUser } from "../../services/payment-requests.service";
+import { notifyWorkerChatAboutProfit as sendProjectProfitToWorkerChat } from "../../services/project-profits.service";
 import { getProjectStats, getWorkerChatId, recalculateProjectStats, setWorkerChatId } from "../../services/settings.service";
 import { getUserById, isWorkerSignalEnabled, registerTeambotUser, setUserBlocked, setUserRole, updateWorkerSignalSetting } from "../../services/users.service";
 import type { AppContext } from "../../types/context";
@@ -807,6 +808,15 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
     await showAdminProjectStats(ctx);
   });
 
+  bot.action("admin:add-profit", async (ctx) => {
+    await answerCallback(ctx);
+    if (!isAdmin(ctx)) {
+      return;
+    }
+
+    await ctx.scene.enter("admin-add-profit");
+  });
+
   bot.action("admin:project-stats:edit", async (ctx) => {
     await answerCallback(ctx);
     if (!isAdmin(ctx)) {
@@ -864,7 +874,7 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
           "Проверьте профиль в Honey Bunny.",
         ].join("\n"),
       );
-      await notifyWorkerChatAboutProfitFormatted(result.request);
+      await sendProjectProfitToWorkerChat(result.request);
       await ctx.reply(`Заявка #${requestId} принята. Баланс клиента пополнен.`);
     }
 

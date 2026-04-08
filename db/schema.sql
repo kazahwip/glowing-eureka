@@ -127,6 +127,7 @@ CREATE TABLE IF NOT EXISTS payment_requests (
   amount REAL NOT NULL,
   receipt_file_id TEXT NOT NULL,
   comment TEXT,
+  source TEXT NOT NULL DEFAULT 'honeybunny',
   status TEXT NOT NULL DEFAULT 'pending',
   admin_user_id INTEGER NULL,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,

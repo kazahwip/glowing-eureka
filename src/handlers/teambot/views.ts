@@ -186,25 +186,36 @@ export async function showWithdrawRequestsScreen(ctx: AppContext) {
   }
 
   const currentCurator = user.curator_id ? await getCuratorById(user.curator_id) : null;
-  await ctx.reply(
-    [
-      "<b>💸 Заявка на вывод</b>",
-      "",
-      `Доступно для вывода: ${formatMoney(user.withdrawable_balance)}`,
+  const payoutLines = [
+    "<b>💸 Заявка на вывод</b>",
+    "",
+    `Доступно для вывода: ${formatMoney(user.withdrawable_balance)}`,
+  ];
+
+  if (user.role === "admin") {
+    payoutLines.push(
+      "Доля администратора: 100% от подтвержденной оплаты.",
+      "Кураторская доля для админского профита не применяется.",
+    );
+  } else {
+    payoutLines.push(
       "Доля воркера: 25% от подтвержденной оплаты.",
       currentCurator
         ? `Доля куратора ${escapeHtml(currentCurator.name)}: 10% от подтвержденной оплаты.`
         : "Если будет назначен куратор, его доля составит 10%.",
-      "",
-      "Экран вывода подготовлен. Здесь отображается доступный баланс teambot.",
-    ].join("\n"),
-    {
-      parse_mode: "HTML",
-      ...teambotBackKeyboard(),
-    },
-  );
-}
+    );
+  }
 
+  payoutLines.push(
+    "",
+    "Экран вывода подготовлен. Здесь отображается доступный баланс teambot.",
+  );
+
+  await ctx.reply(payoutLines.join("\n"), {
+    parse_mode: "HTML",
+    ...teambotBackKeyboard(),
+  });
+}
 export async function showCuratorsScreen(ctx: AppContext) {
   const user = ctx.state.user;
   const [currentCurator, curators] = await Promise.all([

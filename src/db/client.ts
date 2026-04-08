@@ -93,6 +93,12 @@ async function ensurePaymentRequestColumns(db: Database<sqlite3.Database, sqlite
   if (!columnNames.has("curator_share_amount")) {
     await db.exec("ALTER TABLE payment_requests ADD COLUMN curator_share_amount REAL NOT NULL DEFAULT 0;");
   }
+
+  if (!columnNames.has("source")) {
+    await db.exec("ALTER TABLE payment_requests ADD COLUMN source TEXT NOT NULL DEFAULT 'honeybunny';");
+  }
+
+  await db.run("UPDATE payment_requests SET source = 'honeybunny' WHERE source IS NULL OR source = ''");
 }
 
 async function ensureCuratorColumns(db: Database<sqlite3.Database, sqlite3.Statement>) {
@@ -167,18 +173,23 @@ async function syncPayoutData(db: Database<sqlite3.Database, sqlite3.Statement>)
     let curatorShareAmount = 0;
 
     if (request.worker_user_id) {
-      workerShareAmount = roundMoney(request.amount * 0.25);
-      const row = await db.get<{ curatorUserId: number | null }>(
-        `SELECT curators.linked_user_id AS curatorUserId
-         FROM users
-         LEFT JOIN curators ON curators.id = users.curator_id AND curators.is_active = 1
-         WHERE users.id = ?`,
-        request.worker_user_id,
-      );
+      const worker = await db.get<{ role: string | null }>("SELECT role FROM users WHERE id = ?", request.worker_user_id);
+      if (worker?.role === "admin") {
+        workerShareAmount = roundMoney(request.amount);
+      } else {
+        workerShareAmount = roundMoney(request.amount * 0.25);
+        const row = await db.get<{ curatorUserId: number | null }>(
+          `SELECT curators.linked_user_id AS curatorUserId
+           FROM users
+           LEFT JOIN curators ON curators.id = users.curator_id AND curators.is_active = 1
+           WHERE users.id = ?`,
+          request.worker_user_id,
+        );
 
-      curatorUserId = row?.curatorUserId ?? null;
-      if (curatorUserId) {
-        curatorShareAmount = roundMoney(request.amount * 0.1);
+        curatorUserId = row?.curatorUserId ?? null;
+        if (curatorUserId) {
+          curatorShareAmount = roundMoney(request.amount * 0.1);
+        }
       }
     }
 

@@ -43,6 +43,12 @@ export interface ProjectStatsDraft {
   payoutPercent?: number;
 }
 
+export interface AdminProfitDraft {
+  workerUserId?: number;
+  workerLabel?: string;
+  amount?: number;
+}
+
 export interface PaymentRequestDraft {
   amount?: number;
 }
@@ -58,6 +64,7 @@ export interface AppSession extends Scenes.WizardSession<AppSceneSessionData> {
   curatorDraft?: CuratorDraft;
   userSearchDraft?: UserSearchDraft;
   projectStatsDraft?: ProjectStatsDraft;
+  adminProfitDraft?: AdminProfitDraft;
   paymentRequestDraft?: PaymentRequestDraft;
 }
 

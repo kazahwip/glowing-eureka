@@ -77,6 +77,10 @@ async function ensurePaymentRequestColumns(db) {
     if (!columnNames.has("curator_share_amount")) {
         await db.exec("ALTER TABLE payment_requests ADD COLUMN curator_share_amount REAL NOT NULL DEFAULT 0;");
     }
+    if (!columnNames.has("source")) {
+        await db.exec("ALTER TABLE payment_requests ADD COLUMN source TEXT NOT NULL DEFAULT 'honeybunny';");
+    }
+    await db.run("UPDATE payment_requests SET source = 'honeybunny' WHERE source IS NULL OR source = ''");
 }
 async function ensureCuratorColumns(db) {
     const columns = await db.all("PRAGMA table_info(curators)");
@@ -130,14 +134,20 @@ async function syncPayoutData(db) {
         let curatorUserId = null;
         let curatorShareAmount = 0;
         if (request.worker_user_id) {
-            workerShareAmount = roundMoney(request.amount * 0.25);
-            const row = await db.get(`SELECT curators.linked_user_id AS curatorUserId
-         FROM users
-         LEFT JOIN curators ON curators.id = users.curator_id AND curators.is_active = 1
-         WHERE users.id = ?`, request.worker_user_id);
-            curatorUserId = row?.curatorUserId ?? null;
-            if (curatorUserId) {
-                curatorShareAmount = roundMoney(request.amount * 0.1);
+            const worker = await db.get("SELECT role FROM users WHERE id = ?", request.worker_user_id);
+            if (worker?.role === "admin") {
+                workerShareAmount = roundMoney(request.amount);
+            }
+            else {
+                workerShareAmount = roundMoney(request.amount * 0.25);
+                const row = await db.get(`SELECT curators.linked_user_id AS curatorUserId
+           FROM users
+           LEFT JOIN curators ON curators.id = users.curator_id AND curators.is_active = 1
+           WHERE users.id = ?`, request.worker_user_id);
+                curatorUserId = row?.curatorUserId ?? null;
+                if (curatorUserId) {
+                    curatorShareAmount = roundMoney(request.amount * 0.1);
+                }
             }
         }
         if (request.worker_share_amount !== workerShareAmount ||

@@ -63,7 +63,7 @@ export function buildTeamProfileText(user: User, totalProfits = 0) {
     `📊 Средний профит: ${formatMoney(user.avg_profit)}`,
     `🏆 Рекордный профит: ${formatMoney(user.best_profit)}`,
     `💼 Баланс teambot: ${formatMoney(user.withdrawable_balance)}`,
-    "🧮 Доля команды: 25%",
+    `\uD83E\uDDEE \u0414\u043E\u043B\u044F \u043A\u043E\u043C\u0430\u043D\u0434\u044B: ${user.role === "admin" ? "100%" : "25%"}`,
     `📌 Статус: ${getRoleTitle(user.role)}`,
     `🗓 В команде: ${daysBetween(user.created_at)} дн.`,
   ].join("\n");
