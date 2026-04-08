@@ -13,6 +13,8 @@ import { adminProjectStatsScene } from "../scenes/teambot/adminProjectStats.scen
 import { adminTransferScene } from "../scenes/teambot/adminTransfer.scene";
 import { adminUserSearchScene } from "../scenes/teambot/adminUserSearch.scene";
 import { teamCreateCardScene } from "../scenes/teambot/createCard.scene";
+import { profitReportScene } from "../scenes/teambot/profitReport.scene";
+import { withdrawRequestScene } from "../scenes/teambot/withdrawRequest.scene";
 import { createDefaultSession, type AppContext } from "../types/context";
 
 export type RunningTeambot = {
@@ -44,6 +46,8 @@ export async function launchTeambot(): Promise<RunningTeambot> {
       adminCuratorUnassignScene,
       adminBroadcastScene,
       adminAddProfitScene,
+      profitReportScene,
+      withdrawRequestScene,
     ]);
 
     bot.use(attachBotKind("teambot"));
@@ -64,7 +68,7 @@ export async function launchTeambot(): Promise<RunningTeambot> {
     ]);
 
     await bot.launch();
-    process.stdout.write("teambot запущен.\n");
+    process.stdout.write("AWAKE BOT запущен.\n");
 
     return {
       stop: async () => {
@@ -93,7 +97,7 @@ async function bootstrap() {
 
 if (require.main === module) {
   bootstrap().catch((error) => {
-    process.stderr.write(`Ошибка запуска teambot: ${String(error)}\n`);
+    process.stderr.write(`Ошибка запуска AWAKE BOT: ${String(error)}\n`);
     process.exitCode = 1;
   });
 }

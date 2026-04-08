@@ -4,6 +4,7 @@ exports.TEAM_WORK_BUTTONS = void 0;
 exports.teambotMainMenuKeyboard = teambotMainMenuKeyboard;
 exports.teambotMainMenuInlineKeyboard = teambotMainMenuInlineKeyboard;
 exports.teamWorkKeyboard = teamWorkKeyboard;
+exports.withdrawRequestKeyboard = withdrawRequestKeyboard;
 exports.teambotBackKeyboard = teambotBackKeyboard;
 exports.workerSignalSettingsKeyboard = workerSignalSettingsKeyboard;
 exports.curatorDirectoryKeyboard = curatorDirectoryKeyboard;
@@ -50,6 +51,15 @@ function teamWorkKeyboard() {
         [exports.TEAM_WORK_BUTTONS.settings],
         [exports.TEAM_WORK_BUTTONS.back],
     ]).resize();
+}
+function withdrawRequestKeyboard(canCreate) {
+    const rows = [];
+    if (canCreate) {
+        rows.push([telegraf_1.Markup.button.callback("📝 Создать заявку", "team:withdraw:create")]);
+    }
+    rows.push([telegraf_1.Markup.button.callback("💸 Сообщить о профите", "team:profit-report:create")]);
+    rows.push([telegraf_1.Markup.button.callback("🔄 Обновить", "team:withdraw:refresh")], [telegraf_1.Markup.button.callback("⬅️ Назад", "team:withdraw:back")]);
+    return telegraf_1.Markup.inlineKeyboard(rows);
 }
 function teambotBackKeyboard() {
     return telegraf_1.Markup.keyboard([[constants_1.BACK_BUTTON]]).resize();

@@ -14,6 +14,8 @@ exports.adminProjectStatsKeyboard = adminProjectStatsKeyboard;
 exports.adminBroadcastAudienceKeyboard = adminBroadcastAudienceKeyboard;
 exports.adminLogsKeyboard = adminLogsKeyboard;
 exports.adminPaymentRequestKeyboard = adminPaymentRequestKeyboard;
+exports.adminWithdrawRequestKeyboard = adminWithdrawRequestKeyboard;
+exports.adminProfitReportKeyboard = adminProfitReportKeyboard;
 exports.adminCardReviewKeyboard = adminCardReviewKeyboard;
 const telegraf_1 = require("telegraf");
 function adminHomeKeyboard() {
@@ -136,6 +138,24 @@ function adminPaymentRequestKeyboard(requestId) {
             telegraf_1.Markup.button.callback("✅ Принять", `admin:payment-request:${requestId}:approve`),
             telegraf_1.Markup.button.callback("❌ Отклонить", `admin:payment-request:${requestId}:reject`),
         ],
+    ]);
+}
+function adminWithdrawRequestKeyboard(requestId) {
+    return telegraf_1.Markup.inlineKeyboard([
+        [
+            telegraf_1.Markup.button.callback("✅ Принять", `admin:withdraw-request:${requestId}:approve`),
+            telegraf_1.Markup.button.callback("💸 Выплачено", `admin:withdraw-request:${requestId}:paid`),
+            telegraf_1.Markup.button.callback("❌ Отклонить", `admin:withdraw-request:${requestId}:reject`),
+        ],
+    ]);
+}
+function adminProfitReportKeyboard(requestId) {
+    return telegraf_1.Markup.inlineKeyboard([
+        [
+            telegraf_1.Markup.button.callback("💳 Прямой перевод", `admin:profit-report:${requestId}:approve:direct_transfer`),
+            telegraf_1.Markup.button.callback("🤖 HonneyBunny", `admin:profit-report:${requestId}:approve:honeybunny`),
+        ],
+        [telegraf_1.Markup.button.callback("❌ Отклонить", `admin:profit-report:${requestId}:reject`)],
     ]);
 }
 function adminCardReviewKeyboard(cardId) {

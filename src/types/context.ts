@@ -53,6 +53,14 @@ export interface PaymentRequestDraft {
   amount?: number;
 }
 
+export interface WithdrawRequestDraft {
+  amount?: number;
+}
+
+export interface ProfitReportDraft {
+  amount?: number;
+}
+
 export interface AppSceneSessionData extends Scenes.WizardSessionData {
   cursor: number;
 }
@@ -66,6 +74,8 @@ export interface AppSession extends Scenes.WizardSession<AppSceneSessionData> {
   projectStatsDraft?: ProjectStatsDraft;
   adminProfitDraft?: AdminProfitDraft;
   paymentRequestDraft?: PaymentRequestDraft;
+  withdrawRequestDraft?: WithdrawRequestDraft;
+  profitReportDraft?: ProfitReportDraft;
 }
 
 export interface AppContext extends Scenes.WizardContext<AppSceneSessionData> {

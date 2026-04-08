@@ -144,7 +144,7 @@ async function rejectPaymentRequest(requestId, adminUserId) {
      WHERE id = ?`, adminUserId, requestId);
     return { status: "rejected", request: await getPaymentRequestWithUser(requestId) };
 }
-async function createManualProfit(adminUserId, workerUserId, amount, comment) {
+async function createManualProfit(adminUserId, workerUserId, amount, comment, source = "direct_transfer") {
     const db = await (0, client_1.getDb)();
     await db.exec("BEGIN");
     try {
@@ -168,7 +168,7 @@ async function createManualProfit(adminUserId, workerUserId, amount, comment) {
          admin_user_id,
          reviewed_at
        )
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'direct_transfer', 'approved', ?, CURRENT_TIMESTAMP)`, workerUserId, workerUserId, workerShareAmount, curatorUserId, curatorShareAmount, amount, '__manual_profit__', comment?.trim() || null, adminUserId);
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', ?, CURRENT_TIMESTAMP)`, workerUserId, workerUserId, workerShareAmount, curatorUserId, curatorShareAmount, amount, '__manual_profit__', comment?.trim() || null, source, adminUserId);
         await refreshUserProfitStats(db, workerUserId);
         if (curatorUserId) {
             await refreshUserProfitStats(db, curatorUserId);

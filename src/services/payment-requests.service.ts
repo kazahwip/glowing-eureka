@@ -227,7 +227,13 @@ export async function rejectPaymentRequest(requestId: number, adminUserId: numbe
   return { status: "rejected" as const, request: await getPaymentRequestWithUser(requestId) };
 }
 
-export async function createManualProfit(adminUserId: number, workerUserId: number, amount: number, comment?: string) {
+export async function createManualProfit(
+  adminUserId: number,
+  workerUserId: number,
+  amount: number,
+  comment?: string,
+  source: "direct_transfer" | "honeybunny" = "direct_transfer",
+) {
   const db = await getDb();
   await db.exec("BEGIN");
 
@@ -259,7 +265,7 @@ export async function createManualProfit(adminUserId: number, workerUserId: numb
          admin_user_id,
          reviewed_at
        )
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'direct_transfer', 'approved', ?, CURRENT_TIMESTAMP)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', ?, CURRENT_TIMESTAMP)`,
       workerUserId,
       workerUserId,
       workerShareAmount,
@@ -268,6 +274,7 @@ export async function createManualProfit(adminUserId: number, workerUserId: numb
       amount,
       '__manual_profit__',
       comment?.trim() || null,
+      source,
       adminUserId,
     );
 

@@ -37,6 +37,7 @@ const logging_service_1 = require("../../services/logging.service");
 const referrals_service_1 = require("../../services/referrals.service");
 const settings_service_1 = require("../../services/settings.service");
 const users_service_1 = require("../../services/users.service");
+const withdraw_requests_service_1 = require("../../services/withdraw-requests.service");
 const date_1 = require("../../utils/date");
 const media_1 = require("../../utils/media");
 const text_1 = require("../../utils/text");
@@ -62,7 +63,7 @@ function buildSignalSettingsText() {
     return [
         "<b>⚙️ Настройки сигналов</b>",
         "",
-        "Выберите, какие логи по мамонтам и действиям клиентов должны приходить вам в личные сообщения teambot.",
+        "Выберите, какие логи по мамонтам и действиям клиентов должны приходить вам в личные сообщения AWAKE BOT.",
         "",
         "🐘 Новые мамонты — переходы по вашей рефке",
         "🧭 Навигация по боту — открытие основных разделов",
@@ -70,6 +71,18 @@ function buildSignalSettingsText() {
         "💳 Пополнения и оплата — переходы к оплате и пополнению",
         "📅 Предзаказы — заявки по анкетам и бронированию",
     ].join("\n");
+}
+function getWithdrawStatusLabel(status) {
+    if (status === "approved") {
+        return "✅ Подтверждена";
+    }
+    if (status === "paid") {
+        return "💸 Выплачена";
+    }
+    if (status === "rejected") {
+        return "❌ Отклонена";
+    }
+    return "⏳ На проверке";
 }
 async function showTeambotHome(ctx) {
     const cleanupMessage = await ctx.reply(".", telegraf_1.Markup.removeKeyboard()).catch(() => null);
@@ -127,7 +140,7 @@ async function showWorkerReferralScreen(ctx) {
         referralLink ? `<code>${(0, text_1.escapeHtml)(referralLink)}</code>` : "Ссылка появится после запуска servicebot с публичным username.",
         "",
         `🐘 Закреплено мамонтов: ${stats.total}`,
-        "Переходы, открытие вкладок, выбор моделей и шаги к пополнению будут приходить вам в личные сообщения teambot.",
+        "Переходы, открытие вкладок, выбор моделей и шаги к пополнению будут приходить вам в личные сообщения AWAKE BOT.",
     ].join("\n"), {
         parse_mode: "HTML",
         ...(0, teambot_1.teambotBackKeyboard)(),
@@ -164,11 +177,18 @@ async function showWithdrawRequestsScreen(ctx) {
         await ctx.reply("Сначала выполните /start.");
         return;
     }
-    const currentCurator = user.curator_id ? await (0, curators_service_1.getCuratorById)(user.curator_id) : null;
+    const [currentCurator, summary, requests] = await Promise.all([
+        user.curator_id ? (0, curators_service_1.getCuratorById)(user.curator_id) : Promise.resolve(null),
+        (0, withdraw_requests_service_1.getWithdrawRequestSummary)(user.id),
+        (0, withdraw_requests_service_1.listRecentWithdrawRequestsByUser)(user.id, 5),
+    ]);
     const payoutLines = [
         "<b>💸 Заявка на вывод</b>",
         "",
         `Доступно для вывода: ${(0, text_1.formatMoney)(user.withdrawable_balance)}`,
+        `Ожидает проверки: ${summary.pendingCount} шт. • ${(0, text_1.formatMoney)(summary.pendingAmount)}`,
+        `Подтверждено админом: ${(0, text_1.formatMoney)(summary.approvedAmount)}`,
+        `Уже выплачено: ${(0, text_1.formatMoney)(summary.paidAmount)}`,
     ];
     if (user.role === "admin") {
         payoutLines.push("Доля администратора: 100% от подтвержденной оплаты.", "Кураторская доля для админского профита не применяется.");
@@ -178,10 +198,18 @@ async function showWithdrawRequestsScreen(ctx) {
             ? `Доля куратора ${(0, text_1.escapeHtml)(currentCurator.name)}: 10% от подтвержденной оплаты.`
             : "Если будет назначен куратор, его доля составит 10%.");
     }
-    payoutLines.push("", "Экран вывода подготовлен. Здесь отображается доступный баланс teambot.");
+    payoutLines.push("", "<b>Последние заявки</b>");
+    if (!requests.length) {
+        payoutLines.push("Заявок пока нет. Создайте первую через кнопку ниже.");
+    }
+    else {
+        for (const request of requests) {
+            payoutLines.push(`#${request.id} • ${getWithdrawStatusLabel(request.status)}`, `${(0, text_1.formatMoney)(request.amount)} • ${(0, date_1.formatDateTime)(request.created_at)}`);
+        }
+    }
     await ctx.reply(payoutLines.join("\n"), {
         parse_mode: "HTML",
-        ...(0, teambot_1.teambotBackKeyboard)(),
+        ...(0, teambot_1.withdrawRequestKeyboard)(user.withdrawable_balance > 0),
     });
 }
 async function showCuratorsScreen(ctx) {
@@ -226,7 +254,7 @@ async function showProjectInfoScreen(ctx) {
     });
 }
 async function showAdminHome(ctx) {
-    await ctx.reply(["<b>🛡 Админ-панель teambot</b>", "", "Выберите нужный раздел управления."].join("\n"), {
+    await ctx.reply(["<b>🛡 Админ-панель AWAKE BOT</b>", "", "Выберите нужный раздел управления."].join("\n"), {
         parse_mode: "HTML",
         ...(0, admin_1.adminHomeKeyboard)(),
     });
@@ -283,7 +311,7 @@ function buildAdminUserText(user, curatorName) {
         `Роль: ${(0, text_1.getRoleTitle)(user.role)}`,
         `Статус: ${user.is_blocked ? "⛔ Заблокирован" : "✅ Активен"}`,
         `Баланс Honey Bunny: ${(0, text_1.formatMoney)(user.balance)}`,
-        `Баланс teambot: ${(0, text_1.formatMoney)(user.withdrawable_balance)}`,
+        `Баланс AWAKE BOT: ${(0, text_1.formatMoney)(user.withdrawable_balance)}`,
         `Профит: ${(0, text_1.formatMoney)(user.total_profit)}`,
         `Куратор: ${curatorName ? (0, text_1.escapeHtml)(curatorName) : "не назначен"}`,
         `Создан: ${(0, date_1.formatDateTime)(user.created_at)}`,
@@ -403,7 +431,7 @@ async function showAdminCurator(ctx, curatorId) {
         `ID: ${curator.id}`,
         `Имя: ${(0, text_1.escapeHtml)(curator.name)}`,
         `Username: ${curator.telegram_username ? `@${(0, text_1.escapeHtml)(curator.telegram_username)}` : "не указан"}`,
-        `Привязка к teambot: ${curator.linked_user_id && curator.linked_telegram_id ? `<code>${curator.linked_telegram_id}</code>` : "нет"}`,
+        `Привязка к AWAKE BOT: ${curator.linked_user_id && curator.linked_telegram_id ? `<code>${curator.linked_telegram_id}</code>` : "нет"}`,
         `Описание: ${curator.description ? (0, text_1.escapeHtml)(curator.description) : "не заполнено"}`,
         `Статус: ${curator.is_active ? "✅ Активен" : "⛔ Отключен"}`,
     ].join("\n"), {

@@ -145,6 +145,44 @@ async function ensureCuratorRequestTable(db: Database<sqlite3.Database, sqlite3.
   `);
 }
 
+async function ensureWithdrawRequestTable(db: Database<sqlite3.Database, sqlite3.Statement>) {
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS withdraw_requests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      amount REAL NOT NULL,
+      payout_details TEXT NOT NULL,
+      comment TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      admin_user_id INTEGER NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      reviewed_at TEXT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (admin_user_id) REFERENCES users(id) ON DELETE SET NULL
+    );
+  `);
+}
+
+async function ensureProfitReportTable(db: Database<sqlite3.Database, sqlite3.Statement>) {
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS profit_reports (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      amount REAL NOT NULL,
+      payout_details TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      source TEXT NULL,
+      payment_request_id INTEGER NULL,
+      admin_user_id INTEGER NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      reviewed_at TEXT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (payment_request_id) REFERENCES payment_requests(id) ON DELETE SET NULL,
+      FOREIGN KEY (admin_user_id) REFERENCES users(id) ON DELETE SET NULL
+    );
+  `);
+}
+
 async function syncPayoutData(db: Database<sqlite3.Database, sqlite3.Statement>) {
   const approvedRequests = await db.all<
     Array<{
@@ -249,6 +287,30 @@ async function syncPayoutData(db: Database<sqlite3.Database, sqlite3.Statement>)
       row.userId,
     );
   }
+
+  const withdrawalRows = await db.all<
+    Array<{
+      userId: number;
+      reservedAmount: number;
+    }>
+  >(
+    `SELECT
+      user_id AS userId,
+      ROUND(COALESCE(SUM(amount), 0), 2) AS reservedAmount
+     FROM withdraw_requests
+     WHERE status IN ('pending', 'approved', 'paid')
+     GROUP BY user_id`,
+  );
+
+  for (const row of withdrawalRows) {
+    await db.run(
+      `UPDATE users
+       SET withdrawable_balance = MAX(ROUND(withdrawable_balance - ?, 2), 0)
+       WHERE id = ?`,
+      row.reservedAmount,
+      row.userId,
+    );
+  }
 }
 
 async function applySchema(db: Database<sqlite3.Database, sqlite3.Statement>) {
@@ -259,6 +321,8 @@ async function applySchema(db: Database<sqlite3.Database, sqlite3.Statement>) {
   await ensurePaymentRequestColumns(db);
   await ensureCuratorColumns(db);
   await ensureCuratorRequestTable(db);
+  await ensureWithdrawRequestTable(db);
+  await ensureProfitReportTable(db);
   await syncPayoutData(db);
   await db.run("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", [
     "transfer_details",

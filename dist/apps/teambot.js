@@ -16,6 +16,8 @@ const adminProjectStats_scene_1 = require("../scenes/teambot/adminProjectStats.s
 const adminTransfer_scene_1 = require("../scenes/teambot/adminTransfer.scene");
 const adminUserSearch_scene_1 = require("../scenes/teambot/adminUserSearch.scene");
 const createCard_scene_1 = require("../scenes/teambot/createCard.scene");
+const profitReport_scene_1 = require("../scenes/teambot/profitReport.scene");
+const withdrawRequest_scene_1 = require("../scenes/teambot/withdrawRequest.scene");
 const context_1 = require("../types/context");
 let runningTeambotPromise = null;
 async function launchTeambot() {
@@ -38,6 +40,8 @@ async function launchTeambot() {
             adminCuratorUnassign_scene_1.adminCuratorUnassignScene,
             adminBroadcast_scene_1.adminBroadcastScene,
             adminAddProfit_scene_1.adminAddProfitScene,
+            profitReport_scene_1.profitReportScene,
+            withdrawRequest_scene_1.withdrawRequestScene,
         ]);
         bot.use((0, auth_1.attachBotKind)("teambot"));
         bot.use((0, telegraf_1.session)({ defaultSession: context_1.createDefaultSession }));
@@ -54,7 +58,7 @@ async function launchTeambot() {
             { command: "admin", description: "Открыть админ-панель" },
         ]);
         await bot.launch();
-        process.stdout.write("teambot запущен.\n");
+        process.stdout.write("AWAKE BOT запущен.\n");
         return {
             stop: async () => {
                 await bot.stop();
@@ -77,7 +81,7 @@ async function bootstrap() {
 }
 if (require.main === module) {
     bootstrap().catch((error) => {
-        process.stderr.write(`Ошибка запуска teambot: ${String(error)}\n`);
+        process.stderr.write(`Ошибка запуска AWAKE BOT: ${String(error)}\n`);
         process.exitCode = 1;
     });
 }

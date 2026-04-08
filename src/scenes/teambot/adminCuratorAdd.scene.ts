@@ -70,8 +70,8 @@ export const adminCuratorAddScene = new Scenes.WizardScene<AppContext>(
 
     await ctx.reply(
       curator?.linked_user_id
-        ? `Куратор ${parsed.name} (@${parsed.telegramUsername}) добавлен и привязан к пользователю teambot.`
-        : `Куратор ${parsed.name} (@${parsed.telegramUsername}) добавлен. Привязка к teambot появится после первого входа этого пользователя.`,
+        ? `Куратор ${parsed.name} (@${parsed.telegramUsername}) добавлен и привязан к пользователю AWAKE BOT.`
+        : `Куратор ${parsed.name} (@${parsed.telegramUsername}) добавлен. Привязка к AWAKE BOT появится после первого входа этого пользователя.`,
     );
 
     await leaveToCurators(ctx);

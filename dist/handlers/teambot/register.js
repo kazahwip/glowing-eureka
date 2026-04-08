@@ -11,9 +11,11 @@ const curators_service_1 = require("../../services/curators.service");
 const kassa_service_1 = require("../../services/kassa.service");
 const logging_service_1 = require("../../services/logging.service");
 const payment_requests_service_1 = require("../../services/payment-requests.service");
+const profit_reports_service_1 = require("../../services/profit-reports.service");
 const project_profits_service_1 = require("../../services/project-profits.service");
 const settings_service_1 = require("../../services/settings.service");
 const users_service_1 = require("../../services/users.service");
+const withdraw_requests_service_1 = require("../../services/withdraw-requests.service");
 const date_1 = require("../../utils/date");
 const text_1 = require("../../utils/text");
 const views_1 = require("./views");
@@ -50,6 +52,35 @@ async function registerCurrentTeambotUser(ctx) {
 async function notifyClientAboutPaymentDecision(telegramId, text) {
     try {
         await (0, bot_clients_service_1.getServicebotTelegram)().sendMessage(telegramId, text, { parse_mode: "HTML" });
+    }
+    catch {
+        // ignore delivery errors
+    }
+}
+async function notifyWorkerAboutWithdrawDecision(request, decision) {
+    try {
+        await (0, bot_clients_service_1.getTeambotTelegram)().sendMessage(request.telegram_id, [
+            decision === "approved" ? "<b>✅ Заявка на вывод подтверждена</b>" : "<b>❌ Заявка на вывод отклонена</b>",
+            `Заявка: #${request.id}`,
+            `Сумма: ${(0, text_1.formatMoney)(request.amount)}`,
+            decision === "approved"
+                ? "Админ подтвердил заявку. Выплата будет обработана по указанным реквизитам."
+                : "Сумма возвращена в доступный баланс AWAKE BOT. Проверьте реквизиты и создайте заявку заново.",
+        ].join("\n"), { parse_mode: "HTML" });
+    }
+    catch {
+        // ignore delivery errors
+    }
+}
+async function notifyWorkerAboutProfitReportDecision(telegramId, decision, amount, source) {
+    try {
+        await (0, bot_clients_service_1.getTeambotTelegram)().sendMessage(telegramId, [
+            decision === "approved" ? "<b>✅ Профит подтверждён</b>" : "<b>❌ Профит отклонён</b>",
+            `Сумма: ${(0, text_1.formatMoney)(amount)}`,
+            decision === "approved"
+                ? `Источник: ${source === "honeybunny" ? "HonneyBunny" : "Прямой перевод"}`
+                : "Заявка не была зачтена в кассу проекта.",
+        ].join("\n"), { parse_mode: "HTML" });
     }
     catch {
         // ignore delivery errors
@@ -261,6 +292,22 @@ function registerTeambotHandlers(bot) {
         await answerCallback(ctx);
         await (0, views_1.showWithdrawRequestsScreen)(ctx);
     });
+    bot.action("team:withdraw:create", async (ctx) => {
+        await answerCallback(ctx);
+        await ctx.scene.enter("team-withdraw-request");
+    });
+    bot.action("team:profit-report:create", async (ctx) => {
+        await answerCallback(ctx);
+        await ctx.scene.enter("team-profit-report");
+    });
+    bot.action("team:withdraw:refresh", async (ctx) => {
+        await answerCallback(ctx);
+        await (0, views_1.showWithdrawRequestsScreen)(ctx);
+    });
+    bot.action("team:withdraw:back", async (ctx) => {
+        await answerCallback(ctx);
+        await (0, views_1.showTeambotHome)(ctx);
+    });
     bot.action(/^team:signals:toggle:(referrals|navigation|search|payments|bookings)$/, async (ctx) => {
         if (!ctx.state.user) {
             await ctx.answerCbQuery("Сначала выполните /start", { show_alert: true }).catch(() => undefined);
@@ -343,8 +390,8 @@ function registerTeambotHandlers(bot) {
         const delivered = await notifyCuratorAboutRequest(result.request);
         await ctx.answerCbQuery("Заявка отправлена куратору.").catch(() => undefined);
         await ctx.reply(delivered
-            ? "📨 Заявка отправлена куратору. Ответ придёт в teambot."
-            : "📨 Заявка создана, но уведомление куратору пока не доставлено. Он увидит её после следующего входа в teambot.");
+            ? "📨 Заявка отправлена куратору. Ответ придёт в AWAKE BOT."
+            : "📨 Заявка создана, но уведомление куратору пока не доставлено. Он увидит её после следующего входа в AWAKE BOT.");
     });
     bot.action(/^team:curator-request:(\d+):(accept|reject)$/, async (ctx) => {
         if (!ctx.state.user) {
@@ -696,6 +743,109 @@ function registerTeambotHandlers(bot) {
             ].join("\n"));
             await ctx.reply(`Заявка #${requestId} отклонена.`);
         }
+        await ctx.editMessageReplyMarkup({ inline_keyboard: [] }).catch(() => undefined);
+    });
+    bot.action(/^admin:withdraw-request:(\d+):(approve|paid|reject)$/, async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx) || !ctx.state.user) {
+            return;
+        }
+        const requestId = Number(ctx.match[1]);
+        const decision = ctx.match[2];
+        const result = decision === "approve"
+            ? await (0, withdraw_requests_service_1.approveWithdrawRequest)(requestId, ctx.state.user.id)
+            : decision === "paid"
+                ? await (0, withdraw_requests_service_1.markWithdrawRequestPaid)(requestId, ctx.state.user.id)
+                : await (0, withdraw_requests_service_1.rejectWithdrawRequest)(requestId, ctx.state.user.id);
+        if (result.status === "missing") {
+            await ctx.reply("Заявка на вывод не найдена.");
+            return;
+        }
+        if (result.status === "not_approved") {
+            await ctx.reply("Сначала подтвердите заявку, затем отмечайте её как выплаченную.");
+            return;
+        }
+        if (result.status === "processed") {
+            await ctx.reply(`Заявка на вывод #${requestId} уже была обработана ранее.`);
+            return;
+        }
+        if (!result.request) {
+            await ctx.reply("Не удалось обработать заявку на вывод.");
+            return;
+        }
+        if (decision === "approve") {
+            await notifyWorkerAboutWithdrawDecision(result.request, "approved");
+        }
+        else if (decision === "reject") {
+            await notifyWorkerAboutWithdrawDecision(result.request, "rejected");
+        }
+        else {
+            try {
+                await (0, bot_clients_service_1.getTeambotTelegram)().sendMessage(result.request.telegram_id, [
+                    "<b>💸 Выплата отмечена как отправленная</b>",
+                    `Заявка: #${result.request.id}`,
+                    `Сумма: ${(0, text_1.formatMoney)(result.request.amount)}`,
+                ].join("\n"), { parse_mode: "HTML" });
+            }
+            catch {
+                // ignore delivery errors
+            }
+        }
+        await (0, logging_service_1.logAdminAction)(ctx.state.user.id, decision === "approve"
+            ? "approve_withdraw_request"
+            : decision === "paid"
+                ? "mark_withdraw_request_paid"
+                : "reject_withdraw_request", `request:${requestId}; amount:${result.request.amount}`);
+        await ctx.reply(decision === "approve"
+            ? `Заявка на вывод #${requestId} подтверждена.`
+            : decision === "paid"
+                ? `Заявка на вывод #${requestId} отмечена как выплаченная.`
+                : `Заявка на вывод #${requestId} отклонена, сумма возвращена воркеру.`);
+        if (decision === "paid" || decision === "reject") {
+            await ctx.editMessageReplyMarkup({ inline_keyboard: [] }).catch(() => undefined);
+        }
+    });
+    bot.action(/^admin:profit-report:(\d+):(approve:(direct_transfer|honeybunny)|reject)$/, async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx) || !ctx.state.user) {
+            return;
+        }
+        const requestId = Number(ctx.match[1]);
+        const action = ctx.match[2];
+        const source = ctx.match[3];
+        const result = action === "reject"
+            ? await (0, profit_reports_service_1.rejectProfitReport)(requestId, ctx.state.user.id)
+            : await (0, profit_reports_service_1.approveProfitReport)(requestId, ctx.state.user.id, source ?? "direct_transfer");
+        if (result.status === "missing") {
+            await ctx.reply("Заявка о профите не найдена.");
+            return;
+        }
+        if (result.status === "processed") {
+            await ctx.reply(`Заявка о профите #${requestId} уже была обработана ранее.`);
+            return;
+        }
+        if (result.status === "failed") {
+            await ctx.reply("Не удалось зачесть профит. Попробуйте ещё раз.");
+            return;
+        }
+        if (!result.request) {
+            await ctx.reply("Не удалось обработать заявку о профите.");
+            return;
+        }
+        if (action === "reject") {
+            await notifyWorkerAboutProfitReportDecision(result.request.telegram_id, "rejected", result.request.amount);
+            await (0, logging_service_1.logAdminAction)(ctx.state.user.id, "reject_profit_report", `request:${requestId}; amount:${result.request.amount}`);
+            await ctx.reply(`Заявка о профите #${requestId} отклонена.`);
+            await ctx.editMessageReplyMarkup({ inline_keyboard: [] }).catch(() => undefined);
+            return;
+        }
+        if ("paymentRequest" in result && result.paymentRequest) {
+            await (0, settings_service_1.recalculateProjectStats)();
+            await (0, project_profits_service_1.notifyWorkerChatAboutProfit)(result.paymentRequest);
+        }
+        await notifyWorkerAboutProfitReportDecision(result.request.telegram_id, "approved", result.request.amount, source);
+        await (0, logging_service_1.logAdminAction)(ctx.state.user.id, "approve_profit_report", `request:${requestId}; amount:${result.request.amount}; source:${source}`);
+        await ctx.reply(`Заявка о профите #${requestId} подтверждена и зачтена как ${source === "honeybunny" ? "HonneyBunny" : "прямой перевод"}.`);
         await ctx.editMessageReplyMarkup({ inline_keyboard: [] }).catch(() => undefined);
     });
     bot.action(/^admin:card-review:(\d+):(approve|reject)$/, async (ctx) => {

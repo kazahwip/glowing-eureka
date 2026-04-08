@@ -119,6 +119,42 @@ async function ensureCuratorRequestTable(db) {
     );
   `);
 }
+async function ensureWithdrawRequestTable(db) {
+    await db.exec(`
+    CREATE TABLE IF NOT EXISTS withdraw_requests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      amount REAL NOT NULL,
+      payout_details TEXT NOT NULL,
+      comment TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      admin_user_id INTEGER NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      reviewed_at TEXT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (admin_user_id) REFERENCES users(id) ON DELETE SET NULL
+    );
+  `);
+}
+async function ensureProfitReportTable(db) {
+    await db.exec(`
+    CREATE TABLE IF NOT EXISTS profit_reports (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      amount REAL NOT NULL,
+      payout_details TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      source TEXT NULL,
+      payment_request_id INTEGER NULL,
+      admin_user_id INTEGER NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      reviewed_at TEXT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (payment_request_id) REFERENCES payment_requests(id) ON DELETE SET NULL,
+      FOREIGN KEY (admin_user_id) REFERENCES users(id) ON DELETE SET NULL
+    );
+  `);
+}
 async function syncPayoutData(db) {
     const approvedRequests = await db.all(`SELECT
       id,
@@ -179,6 +215,17 @@ async function syncPayoutData(db) {
        SET withdrawable_balance = ?, total_profit = ?, avg_profit = ?, best_profit = ?
        WHERE id = ?`, row.totalProfit, row.totalProfit, row.avgProfit, row.bestProfit, row.userId);
     }
+    const withdrawalRows = await db.all(`SELECT
+      user_id AS userId,
+      ROUND(COALESCE(SUM(amount), 0), 2) AS reservedAmount
+     FROM withdraw_requests
+     WHERE status IN ('pending', 'approved', 'paid')
+     GROUP BY user_id`);
+    for (const row of withdrawalRows) {
+        await db.run(`UPDATE users
+       SET withdrawable_balance = MAX(ROUND(withdrawable_balance - ?, 2), 0)
+       WHERE id = ?`, row.reservedAmount, row.userId);
+    }
 }
 async function applySchema(db) {
     const schema = node_fs_1.default.readFileSync(schemaPath, "utf8");
@@ -188,6 +235,8 @@ async function applySchema(db) {
     await ensurePaymentRequestColumns(db);
     await ensureCuratorColumns(db);
     await ensureCuratorRequestTable(db);
+    await ensureWithdrawRequestTable(db);
+    await ensureProfitReportTable(db);
     await syncPayoutData(db);
     await db.run("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", [
         "transfer_details",

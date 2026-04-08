@@ -136,7 +136,7 @@ export function registerServicebotHandlers(bot: Telegraf<AppContext>) {
 
   bot.command("worker", async (ctx) => {
     if (!hasWorkerAccess(ctx)) {
-      await ctx.reply("Воркер-панель пока недоступна. Используйте /awake или зарегистрируйтесь в teambot.");
+      await ctx.reply("Воркер-панель пока недоступна. Используйте /awake или зарегистрируйтесь в AWAKE BOT.");
       return;
     }
 

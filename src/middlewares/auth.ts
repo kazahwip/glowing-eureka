@@ -43,7 +43,7 @@ async function replyWorkerChatRequired(ctx: AppContext) {
 
   await ctx.reply(
     [
-      "<b>🔒 TeamBot доступен только участникам чата воркеров</b>",
+      "<b>🔒 AWAKE BOT доступен только участникам чата воркеров</b>",
       "",
       "Вступите в рабочий чат команды по кнопке ниже, затем нажмите «Проверить» или выполните /start ещё раз.",
     ].join("\n"),
@@ -117,7 +117,7 @@ export function requireWorkerAccess(): MiddlewareFn<AppContext> {
 
     const allowed = user.has_worker_access === 1 || ["worker", "admin", "curator"].includes(user.role);
     if (!allowed) {
-      await ctx.reply("Воркер-панель пока недоступна. Используйте /awake или зарегистрируйтесь в teambot.");
+      await ctx.reply("Воркер-панель пока недоступна. Используйте /awake или зарегистрируйтесь в AWAKE BOT.");
       return;
     }
 

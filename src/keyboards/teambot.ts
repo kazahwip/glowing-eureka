@@ -48,6 +48,23 @@ export function teamWorkKeyboard() {
   ]).resize();
 }
 
+export function withdrawRequestKeyboard(canCreate: boolean) {
+  const rows = [];
+
+  if (canCreate) {
+    rows.push([Markup.button.callback("📝 Создать заявку", "team:withdraw:create")]);
+  }
+
+  rows.push([Markup.button.callback("💸 Сообщить о профите", "team:profit-report:create")]);
+
+  rows.push(
+    [Markup.button.callback("🔄 Обновить", "team:withdraw:refresh")],
+    [Markup.button.callback("⬅️ Назад", "team:withdraw:back")],
+  );
+
+  return Markup.inlineKeyboard(rows);
+}
+
 export function teambotBackKeyboard() {
   return Markup.keyboard([[BACK_BUTTON]]).resize();
 }

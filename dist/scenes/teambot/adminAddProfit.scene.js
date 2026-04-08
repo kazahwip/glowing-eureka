@@ -90,7 +90,7 @@ exports.adminAddProfitScene = new telegraf_1.Scenes.WizardScene("admin-add-profi
     }
     const comment = ctx.message.text.trim() === "-" ? undefined : ctx.message.text.trim();
     if (!ctx.state.user) {
-        await ctx.reply("????? ????????? ???? ? teambot. ????????? /start ? ?????????? ??? ???.");
+        await ctx.reply("Сначала войдите в AWAKE BOT. Выполните /start и повторите ещё раз.");
         await leaveToProjectStats(ctx);
         return;
     }

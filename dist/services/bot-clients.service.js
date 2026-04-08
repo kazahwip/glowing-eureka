@@ -8,7 +8,7 @@ let teambotTelegram = null;
 let servicebotTelegram = null;
 function getTeambotTelegram() {
     if (!env_1.config.teambotToken) {
-        throw new Error("Не задан TEAMBOT_TOKEN для отправки уведомлений через teambot.");
+        throw new Error("Не задан TEAMBOT_TOKEN для отправки уведомлений через AWAKE BOT.");
     }
     if (!teambotTelegram) {
         teambotTelegram = new telegraf_1.Telegram(env_1.config.teambotToken);

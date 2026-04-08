@@ -12,7 +12,14 @@ import {
   adminUserActionsKeyboard,
   adminUsersKeyboard,
 } from "../../keyboards/admin";
-import { curatorDirectoryKeyboard, teamWorkKeyboard, teambotBackKeyboard, teambotMainMenuInlineKeyboard, workerSignalSettingsKeyboard } from "../../keyboards/teambot";
+import {
+  curatorDirectoryKeyboard,
+  teamWorkKeyboard,
+  teambotBackKeyboard,
+  teambotMainMenuInlineKeyboard,
+  withdrawRequestKeyboard,
+  workerSignalSettingsKeyboard,
+} from "../../keyboards/teambot";
 import { countCards, getCardWithOwner, listCardsByOwner, listRecentCardsForAdmin } from "../../services/cards.service";
 import { getWorkerClientsStats } from "../../services/clients.service";
 import { getCuratorById, getCuratorWithUser, listCurators } from "../../services/curators.service";
@@ -21,6 +28,7 @@ import { getRecentAdminLogs, getRecentErrorLogs } from "../../services/logging.s
 import { buildServicebotReferralLink } from "../../services/referrals.service";
 import { getProjectStats, getServicebotUsername, getTransferDetails } from "../../services/settings.service";
 import { getUserById, getUserStatsSummary, listRecentUsers } from "../../services/users.service";
+import { getWithdrawRequestSummary, listRecentWithdrawRequestsByUser } from "../../services/withdraw-requests.service";
 import type { AppContext } from "../../types/context";
 import type { Curator, User } from "../../types/entities";
 import { formatDateTime } from "../../utils/date";
@@ -67,7 +75,7 @@ function buildSignalSettingsText() {
   return [
     "<b>⚙️ Настройки сигналов</b>",
     "",
-    "Выберите, какие логи по мамонтам и действиям клиентов должны приходить вам в личные сообщения teambot.",
+    "Выберите, какие логи по мамонтам и действиям клиентов должны приходить вам в личные сообщения AWAKE BOT.",
     "",
     "🐘 Новые мамонты — переходы по вашей рефке",
     "🧭 Навигация по боту — открытие основных разделов",
@@ -75,6 +83,22 @@ function buildSignalSettingsText() {
     "💳 Пополнения и оплата — переходы к оплате и пополнению",
     "📅 Предзаказы — заявки по анкетам и бронированию",
   ].join("\n");
+}
+
+function getWithdrawStatusLabel(status: "pending" | "approved" | "paid" | "rejected") {
+  if (status === "approved") {
+    return "✅ Подтверждена";
+  }
+
+  if (status === "paid") {
+    return "💸 Выплачена";
+  }
+
+  if (status === "rejected") {
+    return "❌ Отклонена";
+  }
+
+  return "⏳ На проверке";
 }
 
 export async function showTeambotHome(ctx: AppContext) {
@@ -141,7 +165,7 @@ export async function showWorkerReferralScreen(ctx: AppContext) {
       referralLink ? `<code>${escapeHtml(referralLink)}</code>` : "Ссылка появится после запуска servicebot с публичным username.",
       "",
       `🐘 Закреплено мамонтов: ${stats.total}`,
-      "Переходы, открытие вкладок, выбор моделей и шаги к пополнению будут приходить вам в личные сообщения teambot.",
+      "Переходы, открытие вкладок, выбор моделей и шаги к пополнению будут приходить вам в личные сообщения AWAKE BOT.",
     ].join("\n"),
     {
       parse_mode: "HTML",
@@ -185,11 +209,18 @@ export async function showWithdrawRequestsScreen(ctx: AppContext) {
     return;
   }
 
-  const currentCurator = user.curator_id ? await getCuratorById(user.curator_id) : null;
+  const [currentCurator, summary, requests] = await Promise.all([
+    user.curator_id ? getCuratorById(user.curator_id) : Promise.resolve(null),
+    getWithdrawRequestSummary(user.id),
+    listRecentWithdrawRequestsByUser(user.id, 5),
+  ]);
   const payoutLines = [
     "<b>💸 Заявка на вывод</b>",
     "",
     `Доступно для вывода: ${formatMoney(user.withdrawable_balance)}`,
+    `Ожидает проверки: ${summary.pendingCount} шт. • ${formatMoney(summary.pendingAmount)}`,
+    `Подтверждено админом: ${formatMoney(summary.approvedAmount)}`,
+    `Уже выплачено: ${formatMoney(summary.paidAmount)}`,
   ];
 
   if (user.role === "admin") {
@@ -206,14 +237,22 @@ export async function showWithdrawRequestsScreen(ctx: AppContext) {
     );
   }
 
-  payoutLines.push(
-    "",
-    "Экран вывода подготовлен. Здесь отображается доступный баланс teambot.",
-  );
+  payoutLines.push("", "<b>Последние заявки</b>");
+
+  if (!requests.length) {
+    payoutLines.push("Заявок пока нет. Создайте первую через кнопку ниже.");
+  } else {
+    for (const request of requests) {
+      payoutLines.push(
+        `#${request.id} • ${getWithdrawStatusLabel(request.status)}`,
+        `${formatMoney(request.amount)} • ${formatDateTime(request.created_at)}`,
+      );
+    }
+  }
 
   await ctx.reply(payoutLines.join("\n"), {
     parse_mode: "HTML",
-    ...teambotBackKeyboard(),
+    ...withdrawRequestKeyboard(user.withdrawable_balance > 0),
   });
 }
 export async function showCuratorsScreen(ctx: AppContext) {
@@ -265,7 +304,7 @@ export async function showProjectInfoScreen(ctx: AppContext) {
 }
 
 export async function showAdminHome(ctx: AppContext) {
-  await ctx.reply(["<b>🛡 Админ-панель teambot</b>", "", "Выберите нужный раздел управления."].join("\n"), {
+  await ctx.reply(["<b>🛡 Админ-панель AWAKE BOT</b>", "", "Выберите нужный раздел управления."].join("\n"), {
     parse_mode: "HTML",
     ...adminHomeKeyboard(),
   });
@@ -332,7 +371,7 @@ function buildAdminUserText(user: User, curatorName?: string | null) {
     `Роль: ${getRoleTitle(user.role)}`,
     `Статус: ${user.is_blocked ? "⛔ Заблокирован" : "✅ Активен"}`,
     `Баланс Honey Bunny: ${formatMoney(user.balance)}`,
-    `Баланс teambot: ${formatMoney(user.withdrawable_balance)}`,
+    `Баланс AWAKE BOT: ${formatMoney(user.withdrawable_balance)}`,
     `Профит: ${formatMoney(user.total_profit)}`,
     `Куратор: ${curatorName ? escapeHtml(curatorName) : "не назначен"}`,
     `Создан: ${formatDateTime(user.created_at)}`,
@@ -474,7 +513,7 @@ export async function showAdminCurator(ctx: AppContext, curatorId: number) {
       `ID: ${curator.id}`,
       `Имя: ${escapeHtml(curator.name)}`,
       `Username: ${curator.telegram_username ? `@${escapeHtml(curator.telegram_username)}` : "не указан"}`,
-      `Привязка к teambot: ${
+      `Привязка к AWAKE BOT: ${
         curator.linked_user_id && curator.linked_telegram_id ? `<code>${curator.linked_telegram_id}</code>` : "нет"
       }`,
       `Описание: ${curator.description ? escapeHtml(curator.description) : "не заполнено"}`,

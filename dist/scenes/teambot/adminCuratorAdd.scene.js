@@ -54,7 +54,7 @@ exports.adminCuratorAddScene = new telegraf_1.Scenes.WizardScene("admin-curator-
         await (0, logging_service_1.logAdminAction)(ctx.state.user.id, "create_curator", `curator:${curator?.id ?? "n/a"}; username:@${parsed.telegramUsername}; name:${parsed.name}`);
     }
     await ctx.reply(curator?.linked_user_id
-        ? `Куратор ${parsed.name} (@${parsed.telegramUsername}) добавлен и привязан к пользователю teambot.`
-        : `Куратор ${parsed.name} (@${parsed.telegramUsername}) добавлен. Привязка к teambot появится после первого входа этого пользователя.`);
+        ? `Куратор ${parsed.name} (@${parsed.telegramUsername}) добавлен и привязан к пользователю AWAKE BOT.`
+        : `Куратор ${parsed.name} (@${parsed.telegramUsername}) добавлен. Привязка к AWAKE BOT появится после первого входа этого пользователя.`);
     await leaveToCurators(ctx);
 });

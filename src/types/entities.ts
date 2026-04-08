@@ -111,6 +111,8 @@ export interface Favorite {
 export type BookingStatus = "requested" | "completed";
 export type PaymentMethod = "cash" | "bot_balance";
 export type PaymentRequestStatus = "pending" | "approved" | "rejected";
+export type WithdrawRequestStatus = "pending" | "approved" | "paid" | "rejected";
+export type ProfitReportStatus = "pending" | "approved" | "rejected";
 export type ProfitSource = "honeybunny" | "direct_transfer";
 
 export interface Booking {
@@ -135,6 +137,31 @@ export interface PaymentRequest {
   comment: string | null;
   source: ProfitSource;
   status: PaymentRequestStatus;
+  admin_user_id: number | null;
+  created_at: string;
+  reviewed_at: string | null;
+}
+
+export interface WithdrawRequest {
+  id: number;
+  user_id: number;
+  amount: number;
+  payout_details: string;
+  comment: string | null;
+  status: WithdrawRequestStatus;
+  admin_user_id: number | null;
+  created_at: string;
+  reviewed_at: string | null;
+}
+
+export interface ProfitReport {
+  id: number;
+  user_id: number;
+  amount: number;
+  payout_details: string;
+  status: ProfitReportStatus;
+  source: ProfitSource | null;
+  payment_request_id: number | null;
   admin_user_id: number | null;
   created_at: string;
   reviewed_at: string | null;

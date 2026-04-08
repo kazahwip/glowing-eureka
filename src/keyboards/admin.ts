@@ -161,6 +161,26 @@ export function adminPaymentRequestKeyboard(requestId: number) {
   ]);
 }
 
+export function adminWithdrawRequestKeyboard(requestId: number) {
+  return Markup.inlineKeyboard([
+    [
+      Markup.button.callback("✅ Принять", `admin:withdraw-request:${requestId}:approve`),
+      Markup.button.callback("💸 Выплачено", `admin:withdraw-request:${requestId}:paid`),
+      Markup.button.callback("❌ Отклонить", `admin:withdraw-request:${requestId}:reject`),
+    ],
+  ]);
+}
+
+export function adminProfitReportKeyboard(requestId: number) {
+  return Markup.inlineKeyboard([
+    [
+      Markup.button.callback("💳 Прямой перевод", `admin:profit-report:${requestId}:approve:direct_transfer`),
+      Markup.button.callback("🤖 HonneyBunny", `admin:profit-report:${requestId}:approve:honeybunny`),
+    ],
+    [Markup.button.callback("❌ Отклонить", `admin:profit-report:${requestId}:reject`)],
+  ]);
+}
+
 export function adminCardReviewKeyboard(cardId: number) {
   return Markup.inlineKeyboard([
     [

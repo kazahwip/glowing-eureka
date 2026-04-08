@@ -6,7 +6,7 @@ let servicebotTelegram: Telegram | null = null;
 
 export function getTeambotTelegram() {
   if (!config.teambotToken) {
-    throw new Error("Не задан TEAMBOT_TOKEN для отправки уведомлений через teambot.");
+    throw new Error("Не задан TEAMBOT_TOKEN для отправки уведомлений через AWAKE BOT.");
   }
 
   if (!teambotTelegram) {
