@@ -48,6 +48,7 @@ function getPhotoExtra(markup) {
 function getMessageExtra(markup) {
     return markup;
 }
+const CARD_PAGE_SIZE = 5;
 async function clearServicebotReplyKeyboard(ctx) {
     try {
         const cleanupMessage = await ctx.reply("\u2063", {
@@ -243,7 +244,10 @@ async function showCitySelection(ctx, category) {
 async function showCityCards(ctx, city) {
     const category = ctx.session.searchDraft?.category;
     const cards = await (0, cards_service_1.listCardsByCity)(city, category);
-    ctx.session.searchDraft = { ...ctx.session.searchDraft, city, page: 1 };
+    const totalPages = Math.max(1, Math.ceil(cards.length / CARD_PAGE_SIZE));
+    const currentPage = Math.min(Math.max(ctx.session.searchDraft?.page ?? 1, 1), totalPages);
+    const pageCards = cards.slice((currentPage - 1) * CARD_PAGE_SIZE, currentPage * CARD_PAGE_SIZE);
+    ctx.session.searchDraft = { ...ctx.session.searchDraft, city, page: currentPage };
     const categoryLabel = constants_1.CARD_CATEGORIES.find((item) => item.key === category)?.label ?? "Все";
     if (!cards.length) {
         await ctx.reply(`В разделе ${categoryLabel} для города ${city} пока нет активных анкет.`, {
@@ -256,9 +260,9 @@ async function showCityCards(ctx, city) {
         });
         return;
     }
-    await ctx.reply(`<b>Шаг 3. Анкеты по городу: ${(0, text_1.escapeHtml)(city)}</b>\nРаздел: ${(0, text_1.escapeHtml)(categoryLabel)}`, {
+    await ctx.reply(`<b>Шаг 3. Анкеты по городу: ${(0, text_1.escapeHtml)(city)}</b>\nРаздел: ${(0, text_1.escapeHtml)(categoryLabel)}\nСтраница: ${currentPage} из ${totalPages}`, {
         parse_mode: "HTML",
-        ...(0, servicebot_1.cardListKeyboard)(cards.map((card) => ({ id: card.id, name: card.name, age: card.age })), category ?? "girls"),
+        ...(0, servicebot_1.cardListKeyboard)(pageCards.map((card) => ({ id: card.id, name: card.name, age: card.age })), category ?? "girls", currentPage, totalPages),
     });
 }
 async function showCardDetails(ctx, cardId, photoIndex = 0) {
@@ -455,7 +459,7 @@ async function handlePaymentChoice(ctx, cardId, paymentMethod) {
 }
 async function showCategoryCardsPreview(ctx, category) {
     ctx.session.searchDraft = { category, page: 1 };
-    const cards = await (0, cards_service_1.listRecentCards)(8, category);
+    const cards = await (0, cards_service_1.listRecentCards)(CARD_PAGE_SIZE, category);
     const categoryLabel = constants_1.CARD_CATEGORIES.find((item) => item.key === category)?.label ?? category;
     const replyMarkup = {
         inline_keyboard: [

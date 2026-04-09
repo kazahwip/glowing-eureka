@@ -57,6 +57,8 @@ function getMessageExtra(markup: { reply_markup: unknown }) {
   return markup as never;
 }
 
+const CARD_PAGE_SIZE = 5;
+
 async function clearServicebotReplyKeyboard(ctx: AppContext) {
   try {
     const cleanupMessage = await ctx.reply("\u2063", {
@@ -283,7 +285,10 @@ export async function showCitySelection(ctx: AppContext, category?: CardCategory
 export async function showCityCards(ctx: AppContext, city: string) {
   const category = ctx.session.searchDraft?.category;
   const cards = await listCardsByCity(city, category);
-  ctx.session.searchDraft = { ...ctx.session.searchDraft, city, page: 1 };
+  const totalPages = Math.max(1, Math.ceil(cards.length / CARD_PAGE_SIZE));
+  const currentPage = Math.min(Math.max(ctx.session.searchDraft?.page ?? 1, 1), totalPages);
+  const pageCards = cards.slice((currentPage - 1) * CARD_PAGE_SIZE, currentPage * CARD_PAGE_SIZE);
+  ctx.session.searchDraft = { ...ctx.session.searchDraft, city, page: currentPage };
   const categoryLabel = CARD_CATEGORIES.find((item) => item.key === category)?.label ?? "Все";
 
   if (!cards.length) {
@@ -298,13 +303,18 @@ export async function showCityCards(ctx: AppContext, city: string) {
     return;
   }
 
-  await ctx.reply(`<b>Шаг 3. Анкеты по городу: ${escapeHtml(city)}</b>\nРаздел: ${escapeHtml(categoryLabel)}`, {
+  await ctx.reply(
+    `<b>Шаг 3. Анкеты по городу: ${escapeHtml(city)}</b>\nРаздел: ${escapeHtml(categoryLabel)}\nСтраница: ${currentPage} из ${totalPages}`,
+    {
     parse_mode: "HTML",
     ...cardListKeyboard(
-      cards.map((card) => ({ id: card.id, name: card.name, age: card.age })),
+      pageCards.map((card) => ({ id: card.id, name: card.name, age: card.age })),
       category ?? "girls",
+      currentPage,
+      totalPages,
     ),
-  });
+    },
+  );
 }
 
 export async function showCardDetails(ctx: AppContext, cardId: number, photoIndex = 0) {
@@ -539,7 +549,7 @@ export async function handlePaymentChoice(ctx: AppContext, cardId: number, payme
 
 export async function showCategoryCardsPreview(ctx: AppContext, category: CardCategory) {
   ctx.session.searchDraft = { category, page: 1 };
-  const cards = await listRecentCards(8, category);
+  const cards = await listRecentCards(CARD_PAGE_SIZE, category);
   const categoryLabel = CARD_CATEGORIES.find((item) => item.key === category)?.label ?? category;
   const replyMarkup = {
     inline_keyboard: [

@@ -86,8 +86,15 @@ function modelCategoryKeyboard() {
         [telegraf_1.Markup.button.callback(constants_1.HOME_BUTTON, "service:home")],
     ]);
 }
-function cardListKeyboard(cards, category) {
+function cardListKeyboard(cards, category, page, totalPages) {
     const rows = cards.map((card) => [telegraf_1.Markup.button.callback(`✨ ${card.name}, ${card.age}`, `service:card:${card.id}`)]);
+    if (totalPages > 1) {
+        rows.push([
+            telegraf_1.Markup.button.callback("◀️", page > 1 ? `service:cards:page:${page - 1}` : "service:cards:noop"),
+            telegraf_1.Markup.button.callback(`${page} из ${totalPages}`, "service:cards:noop"),
+            telegraf_1.Markup.button.callback("▶️", page < totalPages ? `service:cards:page:${page + 1}` : "service:cards:noop"),
+        ]);
+    }
     rows.push([telegraf_1.Markup.button.callback("⬅️ Назад", `service:category:${category}`)]);
     return telegraf_1.Markup.inlineKeyboard(rows);
 }

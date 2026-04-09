@@ -153,6 +153,9 @@ function registerServicebotHandlers(bot) {
     bot.action("service:cities:noop", async (ctx) => {
         await answerCallback(ctx);
     });
+    bot.action("service:cards:noop", async (ctx) => {
+        await answerCallback(ctx);
+    });
     bot.action(/^service:category:(girls|pepper)$/, async (ctx) => {
         await answerCallback(ctx);
         const category = ctx.match[1];
@@ -162,7 +165,18 @@ function registerServicebotHandlers(bot) {
     bot.action(/^service:city:(.+)$/, async (ctx) => {
         await answerCallback(ctx);
         const city = ctx.match[1];
+        ctx.session.searchDraft = { ...ctx.session.searchDraft, city, page: 1 };
         await trackRefAction(ctx, "search", "Выбрал город", city);
+        await (0, views_1.showCityCards)(ctx, city);
+    });
+    bot.action(/^service:cards:page:(\d+)$/, async (ctx) => {
+        await answerCallback(ctx);
+        const city = ctx.session.searchDraft?.city;
+        if (!city) {
+            await (0, views_1.showCategorySelection)(ctx);
+            return;
+        }
+        ctx.session.searchDraft = { ...ctx.session.searchDraft, city, page: Number(ctx.match[1]) };
         await (0, views_1.showCityCards)(ctx, city);
     });
     bot.action("service:search-back", async (ctx) => {

@@ -64,8 +64,20 @@ export function modelCategoryKeyboard() {
   ]);
 }
 
-export function cardListKeyboard(cards: Array<{ id: number; name: string; age: number }>, category: "girls" | "pepper") {
+export function cardListKeyboard(
+  cards: Array<{ id: number; name: string; age: number }>,
+  category: "girls" | "pepper",
+  page: number,
+  totalPages: number,
+) {
   const rows = cards.map((card) => [Markup.button.callback(`✨ ${card.name}, ${card.age}`, `service:card:${card.id}`)]);
+  if (totalPages > 1) {
+    rows.push([
+      Markup.button.callback("◀️", page > 1 ? `service:cards:page:${page - 1}` : "service:cards:noop"),
+      Markup.button.callback(`${page} из ${totalPages}`, "service:cards:noop"),
+      Markup.button.callback("▶️", page < totalPages ? `service:cards:page:${page + 1}` : "service:cards:noop"),
+    ]);
+  }
   rows.push([Markup.button.callback("⬅️ Назад", `service:category:${category}`)]);
   return Markup.inlineKeyboard(rows);
 }
