@@ -64,6 +64,7 @@ export function adminCardsKeyboard(cards: Card[]) {
     Markup.button.callback(`📋 #${card.id} ${card.name}, ${card.age} • ${card.city}`, `admin:card:${card.id}:view`),
   ]);
 
+  rows.push([Markup.button.callback("🔎 Найти анкету по ID", "admin:cards:search")]);
   rows.push([Markup.button.callback("⬅️ Назад", "admin:home")]);
 
   return Markup.inlineKeyboard(rows);

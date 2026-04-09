@@ -69,6 +69,7 @@ function adminCardsKeyboard(cards) {
     const rows = cards.map((card) => [
         telegraf_1.Markup.button.callback(`📋 #${card.id} ${card.name}, ${card.age} • ${card.city}`, `admin:card:${card.id}:view`),
     ]);
+    rows.push([telegraf_1.Markup.button.callback("🔎 Найти анкету по ID", "admin:cards:search")]);
     rows.push([telegraf_1.Markup.button.callback("⬅️ Назад", "admin:home")]);
     return telegraf_1.Markup.inlineKeyboard(rows);
 }

@@ -12,6 +12,7 @@ const adminAddProfit_scene_1 = require("../scenes/teambot/adminAddProfit.scene")
 const adminCuratorAdd_scene_1 = require("../scenes/teambot/adminCuratorAdd.scene");
 const adminCuratorAssign_scene_1 = require("../scenes/teambot/adminCuratorAssign.scene");
 const adminCuratorUnassign_scene_1 = require("../scenes/teambot/adminCuratorUnassign.scene");
+const adminCardSearch_scene_1 = require("../scenes/teambot/adminCardSearch.scene");
 const adminProjectStats_scene_1 = require("../scenes/teambot/adminProjectStats.scene");
 const adminTransfer_scene_1 = require("../scenes/teambot/adminTransfer.scene");
 const adminUserSearch_scene_1 = require("../scenes/teambot/adminUserSearch.scene");
@@ -34,6 +35,7 @@ async function launchTeambot() {
         const stage = new telegraf_1.Scenes.Stage([
             createCard_scene_1.teamCreateCardScene,
             adminUserSearch_scene_1.adminUserSearchScene,
+            adminCardSearch_scene_1.adminCardSearchScene,
             adminTransfer_scene_1.adminTransferScene,
             adminProjectStats_scene_1.adminProjectStatsScene,
             adminCuratorAdd_scene_1.adminCuratorAddScene,

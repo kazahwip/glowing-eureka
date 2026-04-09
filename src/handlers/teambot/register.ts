@@ -631,6 +631,15 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
     await showAdminCardsMenu(ctx);
   });
 
+  bot.action("admin:cards:search", async (ctx) => {
+    await answerCallback(ctx);
+    if (!isAdmin(ctx)) {
+      return;
+    }
+
+    await ctx.scene.enter("admin-card-search");
+  });
+
   bot.action("admin:users:list", async (ctx) => {
     await answerCallback(ctx);
     if (!isAdmin(ctx)) {

@@ -9,6 +9,7 @@ import { adminAddProfitScene } from "../scenes/teambot/adminAddProfit.scene";
 import { adminCuratorAddScene } from "../scenes/teambot/adminCuratorAdd.scene";
 import { adminCuratorAssignScene } from "../scenes/teambot/adminCuratorAssign.scene";
 import { adminCuratorUnassignScene } from "../scenes/teambot/adminCuratorUnassign.scene";
+import { adminCardSearchScene } from "../scenes/teambot/adminCardSearch.scene";
 import { adminProjectStatsScene } from "../scenes/teambot/adminProjectStats.scene";
 import { adminTransferScene } from "../scenes/teambot/adminTransfer.scene";
 import { adminUserSearchScene } from "../scenes/teambot/adminUserSearch.scene";
@@ -40,6 +41,7 @@ export async function launchTeambot(): Promise<RunningTeambot> {
     const stage = new Scenes.Stage<AppContext>([
       teamCreateCardScene,
       adminUserSearchScene,
+      adminCardSearchScene,
       adminTransferScene,
       adminProjectStatsScene,
       adminCuratorAddScene,

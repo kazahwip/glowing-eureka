@@ -372,8 +372,8 @@ function buildAdminCardText(card) {
 async function showAdminCardsMenu(ctx) {
     const cards = await (0, cards_service_1.listRecentCardsForAdmin)(15);
     const text = cards.length
-        ? "<b>📋 Анкеты</b>\n\nПоследние карточки в базе. Откройте нужную анкету для просмотра и удаления."
-        : "<b>📋 Анкеты</b>\n\nВ базе пока нет карточек.";
+        ? "<b>📋 Анкеты</b>\n\nПоследние карточки в базе. Можно открыть анкету из списка или быстро найти её по ID."
+        : "<b>📋 Анкеты</b>\n\nВ базе пока нет карточек. Если знаете ID, используйте поиск ниже.";
     await ctx.reply(text, {
         parse_mode: "HTML",
         ...(0, admin_1.adminCardsKeyboard)(cards),
