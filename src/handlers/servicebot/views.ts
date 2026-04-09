@@ -59,6 +59,32 @@ function getMessageExtra(markup: { reply_markup: unknown }) {
 
 const CARD_PAGE_SIZE = 5;
 
+function buildServiceCardListMarkup(
+  cards: Array<{ id: number; name: string; age: number }>,
+  category: "girls" | "pepper",
+  page: number,
+  totalPages: number,
+  showIds: boolean,
+) {
+  const inline_keyboard: Array<Array<{ text: string; callback_data: string }>> = cards.map((card) => [
+    {
+      text: `${showIds ? `#${card.id} ` : ""}${card.name}, ${card.age}`,
+      callback_data: `service:card:${card.id}`,
+    },
+  ]);
+
+  if (totalPages > 1) {
+    inline_keyboard.push([
+      { text: "<", callback_data: page > 1 ? `service:cards:page:${page - 1}` : "service:cards:noop" },
+      { text: `${page} из ${totalPages}`, callback_data: "service:cards:noop" },
+      { text: ">", callback_data: page < totalPages ? `service:cards:page:${page + 1}` : "service:cards:noop" },
+    ]);
+  }
+
+  inline_keyboard.push([{ text: "Назад", callback_data: `service:category:${category}` }]);
+  return { reply_markup: { inline_keyboard } };
+}
+
 async function clearServicebotReplyKeyboard(ctx: AppContext) {
   try {
     const cleanupMessage = await ctx.reply("\u2063", {
@@ -288,6 +314,7 @@ export async function showCityCards(ctx: AppContext, city: string) {
   const totalPages = Math.max(1, Math.ceil(cards.length / CARD_PAGE_SIZE));
   const currentPage = Math.min(Math.max(ctx.session.searchDraft?.page ?? 1, 1), totalPages);
   const pageCards = cards.slice((currentPage - 1) * CARD_PAGE_SIZE, currentPage * CARD_PAGE_SIZE);
+  const showIds = Boolean(ctx.state.isAdmin);
   ctx.session.searchDraft = { ...ctx.session.searchDraft, city, page: currentPage };
   const categoryLabel = CARD_CATEGORIES.find((item) => item.key === category)?.label ?? "Все";
 
@@ -306,13 +333,14 @@ export async function showCityCards(ctx: AppContext, city: string) {
   await ctx.reply(
     `<b>Шаг 3. Анкеты по городу: ${escapeHtml(city)}</b>\nРаздел: ${escapeHtml(categoryLabel)}\nСтраница: ${currentPage} из ${totalPages}`,
     {
-    parse_mode: "HTML",
-    ...cardListKeyboard(
-      pageCards.map((card) => ({ id: card.id, name: card.name, age: card.age })),
-      category ?? "girls",
-      currentPage,
-      totalPages,
-    ),
+      parse_mode: "HTML",
+      ...buildServiceCardListMarkup(
+        pageCards.map((card) => ({ id: card.id, name: card.name, age: card.age })),
+        category ?? "girls",
+        currentPage,
+        totalPages,
+        showIds,
+      ),
     },
   );
 }
@@ -550,11 +578,12 @@ export async function handlePaymentChoice(ctx: AppContext, cardId: number, payme
 export async function showCategoryCardsPreview(ctx: AppContext, category: CardCategory) {
   ctx.session.searchDraft = { category, page: 1 };
   const cards = await listRecentCards(CARD_PAGE_SIZE, category);
+  const showIds = Boolean(ctx.state.isAdmin);
   const categoryLabel = CARD_CATEGORIES.find((item) => item.key === category)?.label ?? category;
   const replyMarkup = {
     inline_keyboard: [
-      ...cards.map((card) => [{ text: `✨ ${card.name}, ${card.age}`, callback_data: `service:card:${card.id}` }]),
-      [{ text: "📍 Выбрать город", callback_data: `service:category:${category}` }],
+      ...cards.map((card) => [{ text: `${showIds ? `#${card.id} ` : ""}${card.name}, ${card.age}`, callback_data: `service:card:${card.id}` }]),
+      [{ text: "Выбрать город", callback_data: `service:category:${category}` }],
       [{ text: HOME_BUTTON, callback_data: "service:home" }],
     ],
   };
