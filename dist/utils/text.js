@@ -64,7 +64,7 @@ function buildTeamProfileText(user, totalProfits = 0) {
         `📊 Средний профит: ${formatMoney(user.avg_profit)}`,
         `🏆 Рекордный профит: ${formatMoney(user.best_profit)}`,
         `💼 Баланс AWAKE BOT: ${formatMoney(user.withdrawable_balance)}`,
-        `\uD83E\uDDEE \u0414\u043E\u043B\u044F \u043A\u043E\u043C\u0430\u043D\u0434\u044B: ${user.role === "admin" ? "100%" : "25%"}`,
+        `🧮 Доля сотрудника: ${user.role === "admin" ? "100%" : "75%"}`,
         `📌 Статус: ${getRoleTitle(user.role)}`,
         `🗓 В команде: ${(0, date_1.daysBetween)(user.created_at)} дн.`,
     ].join("\n");

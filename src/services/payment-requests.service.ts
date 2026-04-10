@@ -56,7 +56,7 @@ async function resolveProfitShares(
 
   const curatorUserId = await resolveCuratorUserId(db, workerUserId);
   return {
-    workerShareAmount: roundMoney(amount * 0.25),
+    workerShareAmount: roundMoney(amount * (curatorUserId ? 0.65 : 0.75)),
     curatorUserId,
     curatorShareAmount: curatorUserId ? roundMoney(amount * 0.1) : 0,
   };

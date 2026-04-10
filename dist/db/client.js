@@ -178,7 +178,6 @@ async function syncPayoutData(db) {
                 workerShareAmount = roundMoney(request.amount);
             }
             else {
-                workerShareAmount = roundMoney(request.amount * 0.25);
                 const row = await db.get(`SELECT curators.linked_user_id AS curatorUserId
            FROM users
            LEFT JOIN curators ON curators.id = users.curator_id AND curators.is_active = 1
@@ -187,6 +186,7 @@ async function syncPayoutData(db) {
                 if (curatorUserId) {
                     curatorShareAmount = roundMoney(request.amount * 0.1);
                 }
+                workerShareAmount = roundMoney(request.amount * (curatorUserId ? 0.65 : 0.75));
             }
         }
         if (request.worker_share_amount !== workerShareAmount ||

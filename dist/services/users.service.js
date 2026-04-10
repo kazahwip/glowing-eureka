@@ -11,6 +11,7 @@ exports.grantWorkerAccess = grantWorkerAccess;
 exports.setUserReferrer = setUserReferrer;
 exports.incrementUserBalance = incrementUserBalance;
 exports.updateUserPayoutDetails = updateUserPayoutDetails;
+exports.updateUserWithdrawableBalance = updateUserWithdrawableBalance;
 exports.updateWorkerSignalSetting = updateWorkerSignalSetting;
 exports.searchUsers = searchUsers;
 exports.listRecentUsers = listRecentUsers;
@@ -113,6 +114,12 @@ async function updateUserPayoutDetails(userId, payoutDetails) {
     await db.run("UPDATE users SET payout_details = ? WHERE id = ?", payoutDetails.trim() || null, userId);
     return getUserById(userId);
 }
+async function updateUserWithdrawableBalance(userId, amount) {
+    const db = await (0, client_1.getDb)();
+    const nextAmount = Math.max(0, Math.round(amount * 100) / 100);
+    await db.run("UPDATE users SET withdrawable_balance = ? WHERE id = ?", nextAmount, userId);
+    return getUserById(userId);
+}
 async function updateWorkerSignalSetting(userId, category, enabled) {
     const db = await (0, client_1.getDb)();
     const column = getWorkerSignalColumnName(category);
@@ -122,11 +129,23 @@ async function updateWorkerSignalSetting(userId, category, enabled) {
 async function searchUsers(query) {
     const db = await (0, client_1.getDb)();
     const normalized = query.trim();
+    const usernameQuery = normalized.replace(/^@+/, "");
     const numeric = Number(normalized);
     if (Number.isInteger(numeric) && numeric > 0) {
-        return db.all("SELECT * FROM users WHERE telegram_id = ? OR id = ? ORDER BY created_at DESC LIMIT 20", numeric, numeric);
+        return db.all(`SELECT *
+       FROM users
+       WHERE telegram_id = ? OR id = ? OR CAST(telegram_id AS TEXT) LIKE ? OR CAST(id AS TEXT) LIKE ?
+       ORDER BY created_at DESC
+       LIMIT 20`, numeric, numeric, `%${normalized}%`, `%${normalized}%`);
     }
-    return db.all("SELECT * FROM users WHERE username LIKE ? OR first_name LIKE ? ORDER BY created_at DESC LIMIT 20", `%${normalized}%`, `%${normalized}%`);
+    return db.all(`SELECT *
+     FROM users
+     WHERE (username IS NOT NULL AND LOWER(username) LIKE LOWER(?))
+        OR (first_name IS NOT NULL AND LOWER(first_name) LIKE LOWER(?))
+        OR CAST(telegram_id AS TEXT) LIKE ?
+        OR CAST(id AS TEXT) LIKE ?
+     ORDER BY created_at DESC
+     LIMIT 20`, `%${usernameQuery}%`, `%${normalized}%`, `%${normalized}%`, `%${normalized}%`);
 }
 async function listRecentUsers(limit = 10) {
     const db = await (0, client_1.getDb)();

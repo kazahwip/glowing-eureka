@@ -723,6 +723,16 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
     await ctx.reply("Выберите новую роль.", adminRoleKeyboard(userId));
   });
 
+  bot.action(/^admin:user:(\d+):withdraw-balance$/, async (ctx) => {
+    await answerCallback(ctx);
+    if (!isAdmin(ctx)) {
+      return;
+    }
+
+    ctx.session.adminWithdrawBalanceDraft = { userId: Number(ctx.match[1]) };
+    await ctx.scene.enter("admin-withdraw-balance");
+  });
+
   bot.action(/^admin:user:(\d+):set-role:(client|worker|curator|admin)$/, async (ctx) => {
     await answerCallback(ctx);
     if (!isAdmin(ctx)) {

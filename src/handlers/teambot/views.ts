@@ -246,9 +246,9 @@ export async function showWithdrawRequestsScreen(ctx: AppContext) {
     );
   } else {
     payoutLines.push(
-      "Доля воркера: 25% от подтвержденной оплаты.",
+      "Доля воркера: 75% от подтвержденной оплаты.",
       currentCurator
-        ? `Доля куратора ${escapeHtml(currentCurator.name)}: 10% от подтвержденной оплаты.`
+        ? `Если закреплён куратор ${escapeHtml(currentCurator.name)}, 10% уходят куратору, а воркеру начисляется 65%.`
         : "Если будет назначен куратор, его доля составит 10%.",
     );
   }

@@ -219,7 +219,6 @@ async function syncPayoutData(db: Database<sqlite3.Database, sqlite3.Statement>)
       if (worker?.role === "admin") {
         workerShareAmount = roundMoney(request.amount);
       } else {
-        workerShareAmount = roundMoney(request.amount * 0.25);
         const row = await db.get<{ curatorUserId: number | null }>(
           `SELECT curators.linked_user_id AS curatorUserId
            FROM users
@@ -232,6 +231,7 @@ async function syncPayoutData(db: Database<sqlite3.Database, sqlite3.Statement>)
         if (curatorUserId) {
           curatorShareAmount = roundMoney(request.amount * 0.1);
         }
+        workerShareAmount = roundMoney(request.amount * (curatorUserId ? 0.65 : 0.75));
       }
     }
 

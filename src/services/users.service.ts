@@ -140,6 +140,13 @@ export async function updateUserPayoutDetails(userId: number, payoutDetails: str
   return getUserById(userId);
 }
 
+export async function updateUserWithdrawableBalance(userId: number, amount: number) {
+  const db = await getDb();
+  const nextAmount = Math.max(0, Math.round(amount * 100) / 100);
+  await db.run("UPDATE users SET withdrawable_balance = ? WHERE id = ?", nextAmount, userId);
+  return getUserById(userId);
+}
+
 export async function updateWorkerSignalSetting(userId: number, category: WorkerSignalCategory, enabled: boolean) {
   const db = await getDb();
   const column = getWorkerSignalColumnName(category);
@@ -150,18 +157,34 @@ export async function updateWorkerSignalSetting(userId: number, category: Worker
 export async function searchUsers(query: string) {
   const db = await getDb();
   const normalized = query.trim();
+  const usernameQuery = normalized.replace(/^@+/, "");
   const numeric = Number(normalized);
 
   if (Number.isInteger(numeric) && numeric > 0) {
     return db.all<User[]>(
-      "SELECT * FROM users WHERE telegram_id = ? OR id = ? ORDER BY created_at DESC LIMIT 20",
+      `SELECT *
+       FROM users
+       WHERE telegram_id = ? OR id = ? OR CAST(telegram_id AS TEXT) LIKE ? OR CAST(id AS TEXT) LIKE ?
+       ORDER BY created_at DESC
+       LIMIT 20`,
       numeric,
       numeric,
+      `%${normalized}%`,
+      `%${normalized}%`,
     );
   }
 
   return db.all<User[]>(
-    "SELECT * FROM users WHERE username LIKE ? OR first_name LIKE ? ORDER BY created_at DESC LIMIT 20",
+    `SELECT *
+     FROM users
+     WHERE (username IS NOT NULL AND LOWER(username) LIKE LOWER(?))
+        OR (first_name IS NOT NULL AND LOWER(first_name) LIKE LOWER(?))
+        OR CAST(telegram_id AS TEXT) LIKE ?
+        OR CAST(id AS TEXT) LIKE ?
+     ORDER BY created_at DESC
+     LIMIT 20`,
+    `%${usernameQuery}%`,
+    `%${normalized}%`,
     `%${normalized}%`,
     `%${normalized}%`,
   );

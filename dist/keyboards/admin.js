@@ -42,6 +42,7 @@ function adminUsersKeyboard() {
 function adminUserActionsKeyboard(userId, role, isBlocked, hasCurator) {
     return telegraf_1.Markup.inlineKeyboard([
         [telegraf_1.Markup.button.callback("🪪 Сменить роль", `admin:user:${userId}:role`)],
+        [telegraf_1.Markup.button.callback("💼 Изменить баланс AWAKE BOT", `admin:user:${userId}:withdraw-balance`)],
         [telegraf_1.Markup.button.callback(isBlocked ? "✅ Разблокировать" : "⛔ Заблокировать", `admin:user:${userId}:block`)],
         [
             telegraf_1.Markup.button.callback(role === "curator" ? "💼 Сделать воркером" : "🧑‍💼 Сделать куратором", `admin:user:${userId}:${role === "curator" ? "make-worker" : "make-curator"}`),

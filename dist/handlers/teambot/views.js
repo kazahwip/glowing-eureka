@@ -207,8 +207,8 @@ async function showWithdrawRequestsScreen(ctx) {
         payoutLines.push("Доля администратора: 100% от подтвержденной оплаты.", "Кураторская доля для админского профита не применяется.");
     }
     else {
-        payoutLines.push("Доля воркера: 25% от подтвержденной оплаты.", currentCurator
-            ? `Доля куратора ${(0, text_1.escapeHtml)(currentCurator.name)}: 10% от подтвержденной оплаты.`
+        payoutLines.push("Доля воркера: 75% от подтвержденной оплаты.", currentCurator
+            ? `Если закреплён куратор ${(0, text_1.escapeHtml)(currentCurator.name)}, 10% уходят куратору, а воркеру начисляется 65%.`
             : "Если будет назначен куратор, его доля составит 10%.");
     }
     payoutLines.push("", "<b>Последние заявки</b>");
