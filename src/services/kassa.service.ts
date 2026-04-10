@@ -128,10 +128,19 @@ export async function getWorkerProfitMetrics(workerUserId: number): Promise<Work
     workerUserId,
   );
 
+  const manual = await db.get<{ manual_profit_count: number; manual_profit_amount: number }>(
+    "SELECT manual_profit_count, manual_profit_amount FROM users WHERE id = ?",
+    workerUserId,
+  );
+  const totalCount = (row?.totalCount ?? 0) + (manual?.manual_profit_count ?? 0);
+  const totalAmount = Math.round(((row?.totalAmount ?? 0) + (manual?.manual_profit_amount ?? 0)) * 100) / 100;
+  const avgAmount = totalCount > 0 ? Math.round((totalAmount / totalCount) * 100) / 100 : 0;
+  const bestAmount = Math.max(row?.bestAmount ?? 0, avgAmount);
+
   return {
-    totalCount: row?.totalCount ?? 0,
-    totalAmount: row?.totalAmount ?? 0,
-    avgAmount: row?.avgAmount ?? 0,
-    bestAmount: row?.bestAmount ?? 0,
+    totalCount,
+    totalAmount,
+    avgAmount,
+    bestAmount,
   };
 }

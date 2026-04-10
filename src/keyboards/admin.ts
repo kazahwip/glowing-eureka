@@ -28,6 +28,7 @@ export function adminUserActionsKeyboard(userId: number, role: UserRole, isBlock
   return Markup.inlineKeyboard([
     [Markup.button.callback("🪪 Сменить роль", `admin:user:${userId}:role`)],
     [Markup.button.callback("💼 Изменить баланс AWAKE BOT", `admin:user:${userId}:withdraw-balance`)],
+    [Markup.button.callback("📈 Изменить профиты", `admin:user:${userId}:profit-metrics`)],
     [Markup.button.callback(isBlocked ? "✅ Разблокировать" : "⛔ Заблокировать", `admin:user:${userId}:block`)],
     [
       Markup.button.callback(

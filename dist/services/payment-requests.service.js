@@ -45,6 +45,7 @@ async function resolveProfitShares(db, workerUserId, amount) {
 }
 async function refreshUserProfitStats(db, userId) {
     const row = await db.get(`SELECT
+      COUNT(*) AS totalCount,
       ROUND(COALESCE(SUM(share_amount), 0), 2) AS totalProfit,
       ROUND(COALESCE(AVG(share_amount), 0), 2) AS avgProfit,
       ROUND(COALESCE(MAX(share_amount), 0), 2) AS bestProfit
@@ -57,9 +58,14 @@ async function refreshUserProfitStats(db, userId) {
        FROM payment_requests
        WHERE status = 'approved' AND curator_user_id = ? AND curator_share_amount > 0
      )`, userId, userId);
+    const manual = await db.get("SELECT manual_profit_count, manual_profit_amount FROM users WHERE id = ?", userId);
+    const totalCount = (row?.totalCount ?? 0) + (manual?.manual_profit_count ?? 0);
+    const totalProfit = roundMoney((row?.totalProfit ?? 0) + (manual?.manual_profit_amount ?? 0));
+    const avgProfit = totalCount > 0 ? roundMoney(totalProfit / totalCount) : 0;
+    const bestProfit = Math.max(row?.bestProfit ?? 0, avgProfit);
     await db.run(`UPDATE users
      SET withdrawable_balance = ?, total_profit = ?, avg_profit = ?, best_profit = ?
-     WHERE id = ?`, row?.totalProfit ?? 0, row?.totalProfit ?? 0, row?.avgProfit ?? 0, row?.bestProfit ?? 0, userId);
+     WHERE id = ?`, totalProfit, totalProfit, avgProfit, bestProfit, userId);
 }
 async function createPaymentRequest(userId, amount, receiptFileId, comment, workerUserId) {
     const db = await (0, client_1.getDb)();

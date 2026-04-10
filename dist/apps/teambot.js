@@ -13,6 +13,7 @@ const adminCuratorAdd_scene_1 = require("../scenes/teambot/adminCuratorAdd.scene
 const adminCuratorAssign_scene_1 = require("../scenes/teambot/adminCuratorAssign.scene");
 const adminCuratorUnassign_scene_1 = require("../scenes/teambot/adminCuratorUnassign.scene");
 const adminCardSearch_scene_1 = require("../scenes/teambot/adminCardSearch.scene");
+const adminProfitMetrics_scene_1 = require("../scenes/teambot/adminProfitMetrics.scene");
 const adminWithdrawBalance_scene_1 = require("../scenes/teambot/adminWithdrawBalance.scene");
 const adminProjectStats_scene_1 = require("../scenes/teambot/adminProjectStats.scene");
 const adminTransfer_scene_1 = require("../scenes/teambot/adminTransfer.scene");
@@ -42,6 +43,7 @@ async function launchTeambot() {
             adminCuratorAdd_scene_1.adminCuratorAddScene,
             adminCuratorAssign_scene_1.adminCuratorAssignScene,
             adminCuratorUnassign_scene_1.adminCuratorUnassignScene,
+            adminProfitMetrics_scene_1.adminProfitMetricsScene,
             adminWithdrawBalance_scene_1.adminWithdrawBalanceScene,
             adminBroadcast_scene_1.adminBroadcastScene,
             adminAddProfit_scene_1.adminAddProfitScene,

@@ -22,6 +22,8 @@ export interface User {
   total_profit: number;
   avg_profit: number;
   best_profit: number;
+  manual_profit_count: number;
+  manual_profit_amount: number;
   created_at: string;
   is_blocked: number;
   has_worker_access: number;

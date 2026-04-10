@@ -10,6 +10,7 @@ import { adminCuratorAddScene } from "../scenes/teambot/adminCuratorAdd.scene";
 import { adminCuratorAssignScene } from "../scenes/teambot/adminCuratorAssign.scene";
 import { adminCuratorUnassignScene } from "../scenes/teambot/adminCuratorUnassign.scene";
 import { adminCardSearchScene } from "../scenes/teambot/adminCardSearch.scene";
+import { adminProfitMetricsScene } from "../scenes/teambot/adminProfitMetrics.scene";
 import { adminWithdrawBalanceScene } from "../scenes/teambot/adminWithdrawBalance.scene";
 import { adminProjectStatsScene } from "../scenes/teambot/adminProjectStats.scene";
 import { adminTransferScene } from "../scenes/teambot/adminTransfer.scene";
@@ -48,6 +49,7 @@ export async function launchTeambot(): Promise<RunningTeambot> {
       adminCuratorAddScene,
       adminCuratorAssignScene,
       adminCuratorUnassignScene,
+      adminProfitMetricsScene,
       adminWithdrawBalanceScene,
       adminBroadcastScene,
       adminAddProfitScene,

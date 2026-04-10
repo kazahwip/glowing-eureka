@@ -46,6 +46,12 @@ async function ensureUserColumns(db) {
     if (!columnNames.has("withdrawable_balance")) {
         await db.exec("ALTER TABLE users ADD COLUMN withdrawable_balance REAL NOT NULL DEFAULT 0;");
     }
+    if (!columnNames.has("manual_profit_count")) {
+        await db.exec("ALTER TABLE users ADD COLUMN manual_profit_count INTEGER NOT NULL DEFAULT 0;");
+    }
+    if (!columnNames.has("manual_profit_amount")) {
+        await db.exec("ALTER TABLE users ADD COLUMN manual_profit_amount REAL NOT NULL DEFAULT 0;");
+    }
     if (!columnNames.has("payout_details")) {
         await db.exec("ALTER TABLE users ADD COLUMN payout_details TEXT NULL;");
     }
@@ -200,6 +206,7 @@ async function syncPayoutData(db) {
     await db.run("UPDATE users SET withdrawable_balance = 0, total_profit = 0, avg_profit = 0, best_profit = 0");
     const userProfitRows = await db.all(`SELECT
       user_id AS userId,
+      COUNT(*) AS totalCount,
       ROUND(COALESCE(SUM(share_amount), 0), 2) AS totalProfit,
       ROUND(COALESCE(AVG(share_amount), 0), 2) AS avgProfit,
       ROUND(COALESCE(MAX(share_amount), 0), 2) AS bestProfit
@@ -213,10 +220,17 @@ async function syncPayoutData(db) {
        WHERE status = 'approved' AND curator_user_id IS NOT NULL AND curator_share_amount > 0
      )
      GROUP BY user_id`);
-    for (const row of userProfitRows) {
+    const derivedMap = new Map(userProfitRows.map((row) => [row.userId, row]));
+    const users = await db.all("SELECT id, manual_profit_count, manual_profit_amount FROM users");
+    for (const user of users) {
+        const row = derivedMap.get(user.id);
+        const totalCount = (row?.totalCount ?? 0) + user.manual_profit_count;
+        const totalProfit = roundMoney((row?.totalProfit ?? 0) + user.manual_profit_amount);
+        const avgProfit = totalCount > 0 ? roundMoney(totalProfit / totalCount) : 0;
+        const bestProfit = Math.max(row?.bestProfit ?? 0, avgProfit);
         await db.run(`UPDATE users
        SET withdrawable_balance = ?, total_profit = ?, avg_profit = ?, best_profit = ?
-       WHERE id = ?`, row.totalProfit, row.totalProfit, row.avgProfit, row.bestProfit, row.userId);
+       WHERE id = ?`, totalProfit, totalProfit, avgProfit, bestProfit, user.id);
     }
     const withdrawalRows = await db.all(`SELECT
       user_id AS userId,

@@ -87,10 +87,15 @@ async function getWorkerProfitMetrics(workerUserId) {
        FROM payment_requests
        WHERE curator_user_id = ? AND status = 'approved' AND curator_share_amount > 0
      )`, workerUserId, workerUserId);
+    const manual = await db.get("SELECT manual_profit_count, manual_profit_amount FROM users WHERE id = ?", workerUserId);
+    const totalCount = (row?.totalCount ?? 0) + (manual?.manual_profit_count ?? 0);
+    const totalAmount = Math.round(((row?.totalAmount ?? 0) + (manual?.manual_profit_amount ?? 0)) * 100) / 100;
+    const avgAmount = totalCount > 0 ? Math.round((totalAmount / totalCount) * 100) / 100 : 0;
+    const bestAmount = Math.max(row?.bestAmount ?? 0, avgAmount);
     return {
-        totalCount: row?.totalCount ?? 0,
-        totalAmount: row?.totalAmount ?? 0,
-        avgAmount: row?.avgAmount ?? 0,
-        bestAmount: row?.bestAmount ?? 0,
+        totalCount,
+        totalAmount,
+        avgAmount,
+        bestAmount,
     };
 }

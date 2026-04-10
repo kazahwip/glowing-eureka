@@ -552,6 +552,14 @@ function registerTeambotHandlers(bot) {
         ctx.session.adminWithdrawBalanceDraft = { userId: Number(ctx.match[1]) };
         await ctx.scene.enter("admin-withdraw-balance");
     });
+    bot.action(/^admin:user:(\d+):profit-metrics$/, async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx)) {
+            return;
+        }
+        ctx.session.adminProfitMetricsDraft = { userId: Number(ctx.match[1]) };
+        await ctx.scene.enter("admin-profit-metrics");
+    });
     bot.action(/^admin:user:(\d+):set-role:(client|worker|curator|admin)$/, async (ctx) => {
         await answerCallback(ctx);
         if (!isAdmin(ctx)) {

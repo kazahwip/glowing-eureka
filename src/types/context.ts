@@ -65,6 +65,11 @@ export interface AdminWithdrawBalanceDraft {
   userId?: number;
 }
 
+export interface AdminProfitMetricsDraft {
+  userId?: number;
+  totalCount?: number;
+}
+
 export interface AppSceneSessionData extends Scenes.WizardSessionData {
   cursor: number;
 }
@@ -81,6 +86,7 @@ export interface AppSession extends Scenes.WizardSession<AppSceneSessionData> {
   withdrawRequestDraft?: WithdrawRequestDraft;
   profitReportDraft?: ProfitReportDraft;
   adminWithdrawBalanceDraft?: AdminWithdrawBalanceDraft;
+  adminProfitMetricsDraft?: AdminProfitMetricsDraft;
 }
 
 export interface AppContext extends Scenes.WizardContext<AppSceneSessionData> {

@@ -12,6 +12,7 @@ exports.setUserReferrer = setUserReferrer;
 exports.incrementUserBalance = incrementUserBalance;
 exports.updateUserPayoutDetails = updateUserPayoutDetails;
 exports.updateUserWithdrawableBalance = updateUserWithdrawableBalance;
+exports.updateUserManualProfitMetrics = updateUserManualProfitMetrics;
 exports.updateWorkerSignalSetting = updateWorkerSignalSetting;
 exports.searchUsers = searchUsers;
 exports.listRecentUsers = listRecentUsers;
@@ -118,6 +119,37 @@ async function updateUserWithdrawableBalance(userId, amount) {
     const db = await (0, client_1.getDb)();
     const nextAmount = Math.max(0, Math.round(amount * 100) / 100);
     await db.run("UPDATE users SET withdrawable_balance = ? WHERE id = ?", nextAmount, userId);
+    return getUserById(userId);
+}
+async function updateUserManualProfitMetrics(userId, totalCount, totalAmount) {
+    const db = await (0, client_1.getDb)();
+    const base = await db.get(`SELECT
+       COUNT(*) AS totalCount,
+       ROUND(COALESCE(SUM(share_amount), 0), 2) AS totalAmount,
+       ROUND(COALESCE(MAX(share_amount), 0), 2) AS bestAmount
+     FROM (
+       SELECT worker_share_amount AS share_amount
+       FROM payment_requests
+       WHERE worker_user_id = ? AND status = 'approved' AND worker_share_amount > 0
+       UNION ALL
+       SELECT curator_share_amount AS share_amount
+       FROM payment_requests
+       WHERE curator_user_id = ? AND status = 'approved' AND curator_share_amount > 0
+     )`, userId, userId);
+    const safeCount = Math.max(0, Math.floor(totalCount));
+    const safeAmount = Math.max(0, Math.round(totalAmount * 100) / 100);
+    const manualCount = Math.max(0, safeCount - (base?.totalCount ?? 0));
+    const manualAmount = Math.max(0, Math.round((safeAmount - (base?.totalAmount ?? 0)) * 100) / 100);
+    const avgProfit = safeCount > 0 ? Math.round((safeAmount / safeCount) * 100) / 100 : 0;
+    const bestProfit = Math.max(base?.bestAmount ?? 0, avgProfit);
+    await db.run(`UPDATE users
+     SET manual_profit_count = ?,
+         manual_profit_amount = ?,
+         withdrawable_balance = ?,
+         total_profit = ?,
+         avg_profit = ?,
+         best_profit = ?
+     WHERE id = ?`, manualCount, manualAmount, safeAmount, safeAmount, avgProfit, bestProfit, userId);
     return getUserById(userId);
 }
 async function updateWorkerSignalSetting(userId, category, enabled) {
