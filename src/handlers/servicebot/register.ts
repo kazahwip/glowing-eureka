@@ -20,6 +20,7 @@ import {
   showInfoRoot,
   showInfoSection,
   showModelCertificate,
+  showModelSafetyPolicy,
   showModelReviews,
   showModelSchedule,
   showPaymentScreen,
@@ -291,6 +292,11 @@ export function registerServicebotHandlers(bot: Telegraf<AppContext>) {
   bot.action(/^service:certificate:(\d+)$/, async (ctx) => {
     await answerCallback(ctx);
     await showModelCertificate(ctx, Number(ctx.match[1]));
+  });
+
+  bot.action(/^service:safety-policy:(\d+)$/, async (ctx) => {
+    await answerCallback(ctx);
+    await showModelSafetyPolicy(ctx, Number(ctx.match[1]));
   });
 
   bot.action(/^service:model-reviews:(\d+)$/, async (ctx) => {

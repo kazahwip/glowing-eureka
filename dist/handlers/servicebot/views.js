@@ -15,6 +15,7 @@ exports.showCitySelection = showCitySelection;
 exports.showCityCards = showCityCards;
 exports.showCardDetails = showCardDetails;
 exports.showModelCertificate = showModelCertificate;
+exports.showModelSafetyPolicy = showModelSafetyPolicy;
 exports.showModelReviews = showModelReviews;
 exports.showModelSchedule = showModelSchedule;
 exports.showPrebookingScreen = showPrebookingScreen;
@@ -327,6 +328,17 @@ async function showModelCertificate(ctx, cardId) {
         return;
     }
     await ctx.reply((0, showcase_service_1.buildModelCertificateText)(card), {
+        parse_mode: "HTML",
+        ...(0, servicebot_1.modelInfoBackKeyboard)(cardId),
+    });
+}
+async function showModelSafetyPolicy(ctx, cardId) {
+    const card = await (0, cards_service_1.getCardById)(cardId);
+    if (!card) {
+        await ctx.reply("?????? ?? ???????.");
+        return;
+    }
+    await ctx.reply((0, showcase_service_1.buildModelSafetyPolicyText)(), {
         parse_mode: "HTML",
         ...(0, servicebot_1.modelInfoBackKeyboard)(cardId),
     });

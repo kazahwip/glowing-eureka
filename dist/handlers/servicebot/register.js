@@ -220,6 +220,10 @@ function registerServicebotHandlers(bot) {
         await answerCallback(ctx);
         await (0, views_1.showModelCertificate)(ctx, Number(ctx.match[1]));
     });
+    bot.action(/^service:safety-policy:(\d+)$/, async (ctx) => {
+        await answerCallback(ctx);
+        await (0, views_1.showModelSafetyPolicy)(ctx, Number(ctx.match[1]));
+    });
     bot.action(/^service:model-reviews:(\d+)$/, async (ctx) => {
         await answerCallback(ctx);
         await (0, views_1.showModelReviews)(ctx, Number(ctx.match[1]), 1);

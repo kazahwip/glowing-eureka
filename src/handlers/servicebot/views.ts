@@ -38,6 +38,7 @@ import {
   buildModelCardText,
   buildModelCertificateText,
   buildModelReviewsText,
+  buildModelSafetyPolicyText,
   buildScheduleText,
   listReviewFeed,
 } from "../../services/showcase.service";
@@ -394,6 +395,19 @@ export async function showModelCertificate(ctx: AppContext, cardId: number) {
   }
 
   await ctx.reply(buildModelCertificateText(card), {
+    parse_mode: "HTML",
+    ...modelInfoBackKeyboard(cardId),
+  });
+}
+
+export async function showModelSafetyPolicy(ctx: AppContext, cardId: number) {
+  const card = await getCardById(cardId);
+  if (!card) {
+    await ctx.reply("?????? ?? ???????.");
+    return;
+  }
+
+  await ctx.reply(buildModelSafetyPolicyText(), {
     parse_mode: "HTML",
     ...modelInfoBackKeyboard(cardId),
   });
