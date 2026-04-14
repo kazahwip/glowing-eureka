@@ -108,7 +108,7 @@ function cardDetailKeyboard(cardId, isFavorite, nextPhotoIndex) {
             telegraf_1.Markup.button.callback("📅 Расписание", `service:schedule:today:${cardId}`),
             telegraf_1.Markup.button.callback("⭐ Отзывы", `service:model-reviews:${cardId}`),
         ],
-        [telegraf_1.Markup.button.callback("?? ???????? ????????????", `service:safety-policy:${cardId}`)],
+        [telegraf_1.Markup.button.callback("🛡 ПОЛИТИКА БЕЗОПАСНОСТИ", `service:safety-policy:${cardId}`)],
         [telegraf_1.Markup.button.callback("🏆 Сертификат", `service:certificate:${cardId}`)],
         [telegraf_1.Markup.button.callback(isFavorite ? "💔 Убрать из избранного" : "❤️ Добавить в избранное", `service:favorite:${cardId}`)],
         [telegraf_1.Markup.button.callback("⬅️ Назад", "service:search-back")],

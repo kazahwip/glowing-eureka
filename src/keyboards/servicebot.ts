@@ -92,7 +92,7 @@ export function cardDetailKeyboard(cardId: number, isFavorite: boolean, nextPhot
       Markup.button.callback("📅 Расписание", `service:schedule:today:${cardId}`),
       Markup.button.callback("⭐ Отзывы", `service:model-reviews:${cardId}`),
     ],
-    [Markup.button.callback("?? ???????? ????????????", `service:safety-policy:${cardId}`)],
+    [Markup.button.callback("🛡 ПОЛИТИКА БЕЗОПАСНОСТИ", `service:safety-policy:${cardId}`)],
     [Markup.button.callback("🏆 Сертификат", `service:certificate:${cardId}`)],
     [Markup.button.callback(isFavorite ? "💔 Убрать из избранного" : "❤️ Добавить в избранное", `service:favorite:${cardId}`)],
     [Markup.button.callback("⬅️ Назад", "service:search-back")],

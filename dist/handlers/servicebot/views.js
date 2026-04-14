@@ -335,7 +335,7 @@ async function showModelCertificate(ctx, cardId) {
 async function showModelSafetyPolicy(ctx, cardId) {
     const card = await (0, cards_service_1.getCardById)(cardId);
     if (!card) {
-        await ctx.reply("?????? ?? ???????.");
+        await ctx.reply("Анкета не найдена.");
         return;
     }
     await ctx.reply((0, showcase_service_1.buildModelSafetyPolicyText)(), {

@@ -403,7 +403,7 @@ export async function showModelCertificate(ctx: AppContext, cardId: number) {
 export async function showModelSafetyPolicy(ctx: AppContext, cardId: number) {
   const card = await getCardById(cardId);
   if (!card) {
-    await ctx.reply("?????? ?? ???????.");
+    await ctx.reply("Анкета не найдена.");
     return;
   }
 
