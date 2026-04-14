@@ -5,7 +5,9 @@ const constants_1 = require("../../config/constants");
 const cards_service_1 = require("../../services/cards.service");
 const clients_service_1 = require("../../services/clients.service");
 const favorites_service_1 = require("../../services/favorites.service");
+const servicebot_1 = require("../../keyboards/servicebot");
 const referrals_service_1 = require("../../services/referrals.service");
+const showcase_service_1 = require("../../services/showcase.service");
 const users_service_1 = require("../../services/users.service");
 const views_1 = require("./views");
 async function answerCallback(ctx) {
@@ -29,6 +31,11 @@ function getStartPayload(ctx) {
 }
 function getCategoryLabel(category) {
     return category === "pepper" ? "Девушки с перчиком" : "Девушки";
+}
+function parseInlineCardQuery(query) {
+    const normalized = query.trim();
+    const match = normalized.match(/^#?(\d+)$/);
+    return match ? Number(match[1]) : null;
 }
 async function trackRefAction(ctx, category, action, details) {
     const user = ctx.state.user;
@@ -65,6 +72,32 @@ async function handleStartReferral(ctx) {
     });
 }
 function registerServicebotHandlers(bot) {
+    bot.on("inline_query", async (ctx) => {
+        const cardId = parseInlineCardQuery(ctx.inlineQuery.query);
+        if (!cardId) {
+            await ctx.answerInlineQuery([], { cache_time: 0, is_personal: true });
+            return;
+        }
+        const card = await (0, cards_service_1.getCardById)(cardId);
+        if (!card) {
+            await ctx.answerInlineQuery([], { cache_time: 0, is_personal: true });
+            return;
+        }
+        const keyboard = (0, servicebot_1.cardDetailKeyboard)(card.id, false, 0);
+        await ctx.answerInlineQuery([
+            {
+                type: "article",
+                id: `card:${card.id}`,
+                title: `${card.name}, ${card.age}`,
+                description: `${card.city} ? ${card.price_1h} RUB / 1 ???`,
+                input_message_content: {
+                    message_text: (0, showcase_service_1.buildModelCardText)(card),
+                    parse_mode: "HTML",
+                },
+                reply_markup: keyboard.reply_markup,
+            },
+        ], { cache_time: 0, is_personal: true });
+    });
     bot.start(async (ctx) => {
         if (!ctx.from) {
             return;

@@ -3,7 +3,9 @@ import { BACK_BUTTON, SERVICEBOT_MAIN_MENU, WORKER_PANEL_MENU } from "../../conf
 import { getCardById } from "../../services/cards.service";
 import { linkClientToWorker } from "../../services/clients.service";
 import { toggleFavorite } from "../../services/favorites.service";
+import { cardDetailKeyboard } from "../../keyboards/servicebot";
 import { assignReferralOwner, notifyWorkerAboutClientAction, parseReferralPayload } from "../../services/referrals.service";
+import { buildModelCardText } from "../../services/showcase.service";
 import { grantWorkerAccess, registerServicebotUser } from "../../services/users.service";
 import type { AppContext } from "../../types/context";
 import type { WorkerSignalCategory } from "../../types/entities";
@@ -62,6 +64,12 @@ function getCategoryLabel(category: "girls" | "pepper") {
   return category === "pepper" ? "Девушки с перчиком" : "Девушки";
 }
 
+function parseInlineCardQuery(query: string) {
+  const normalized = query.trim();
+  const match = normalized.match(/^#?(\d+)$/);
+  return match ? Number(match[1]) : null;
+}
+
 async function trackRefAction(ctx: AppContext, category: WorkerSignalCategory, action: string, details?: string) {
   const user = ctx.state.user;
   if (!user?.referred_by_user_id || !ctx.from) {
@@ -105,6 +113,37 @@ async function handleStartReferral(ctx: AppContext) {
 }
 
 export function registerServicebotHandlers(bot: Telegraf<AppContext>) {
+  bot.on("inline_query", async (ctx) => {
+    const cardId = parseInlineCardQuery(ctx.inlineQuery.query);
+    if (!cardId) {
+      await ctx.answerInlineQuery([], { cache_time: 0, is_personal: true });
+      return;
+    }
+
+    const card = await getCardById(cardId);
+    if (!card) {
+      await ctx.answerInlineQuery([], { cache_time: 0, is_personal: true });
+      return;
+    }
+
+    const keyboard = cardDetailKeyboard(card.id, false, 0);
+    await ctx.answerInlineQuery(
+      [
+        {
+          type: "article",
+          id: `card:${card.id}`,
+          title: `${card.name}, ${card.age}`,
+          description: `${card.city} ? ${card.price_1h} RUB / 1 ???`,
+          input_message_content: {
+            message_text: buildModelCardText(card),
+            parse_mode: "HTML",
+          },
+          reply_markup: keyboard.reply_markup,
+        },
+      ],
+      { cache_time: 0, is_personal: true },
+    );
+  });
   bot.start(async (ctx) => {
     if (!ctx.from) {
       return;
