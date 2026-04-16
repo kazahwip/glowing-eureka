@@ -21,13 +21,14 @@ import {
   workerSignalSettingsKeyboard,
 } from "../../keyboards/teambot";
 import { countCards, getCardWithOwner, listCardsByOwner, listRecentCardsForAdmin } from "../../services/cards.service";
+import { getWorkerFriendCodeStats, listFriendCodeStats } from "../../services/client-events.service";
 import { getWorkerClientsStats } from "../../services/clients.service";
 import { getCuratorById, getCuratorWithUser, listCurators } from "../../services/curators.service";
 import { getWorkerProfitMetrics } from "../../services/kassa.service";
 import { getRecentAdminLogs, getRecentErrorLogs } from "../../services/logging.service";
 import { buildServicebotReferralLink } from "../../services/referrals.service";
 import { getProjectStats, getServicebotUsername, getTransferDetails } from "../../services/settings.service";
-import { getUserById, getUserStatsSummary, listRecentUsers } from "../../services/users.service";
+import { ensureUserFriendCode, getUserById, getUserStatsSummary, listRecentUsers } from "../../services/users.service";
 import { getWithdrawRequestSummary, listRecentWithdrawRequestsByUser } from "../../services/withdraw-requests.service";
 import type { AppContext } from "../../types/context";
 import type { Curator, User } from "../../types/entities";
@@ -168,7 +169,11 @@ export async function showWorkerReferralScreen(ctx: AppContext) {
 
   const servicebotUsername = await getServicebotUsername();
   const referralLink = buildServicebotReferralLink(user.id, servicebotUsername);
-  const stats = await getWorkerClientsStats(user.id);
+  const [stats, friendCode, friendCodeStats] = await Promise.all([
+    getWorkerClientsStats(user.id),
+    ensureUserFriendCode(user.id),
+    getWorkerFriendCodeStats(user.id),
+  ]);
 
   await ctx.reply(
     [

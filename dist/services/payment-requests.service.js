@@ -1,12 +1,16 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createPaymentRequest = createPaymentRequest;
+exports.createWebappPaymentRequest = createWebappPaymentRequest;
+exports.attachWebappPaymentReceipt = attachWebappPaymentReceipt;
 exports.getPaymentRequestById = getPaymentRequestById;
 exports.getPaymentRequestWithUser = getPaymentRequestWithUser;
+exports.getPaymentRequestMediaInput = getPaymentRequestMediaInput;
 exports.approvePaymentRequest = approvePaymentRequest;
 exports.rejectPaymentRequest = rejectPaymentRequest;
 exports.createManualProfit = createManualProfit;
 const client_1 = require("../db/client");
+const media_service_1 = require("./media.service");
 function roundMoney(value) {
     return Math.round(value * 100) / 100;
 }
@@ -76,13 +80,48 @@ async function createPaymentRequest(userId, amount, receiptFileId, comment, work
        curator_user_id,
        curator_share_amount,
        amount,
+       receipt_kind,
+       receipt_path,
        receipt_file_id,
        comment,
        source,
        status
      )
-     VALUES (?, ?, 0, NULL, 0, ?, ?, ?, 'honeybunny', 'pending')`, userId, workerUserId ?? null, amount, receiptFileId, comment?.trim() || null);
+     VALUES (?, ?, 0, NULL, 0, ?, 'telegram', NULL, ?, ?, 'honeybunny', 'pending')`, userId, workerUserId ?? null, amount, receiptFileId, comment?.trim() || null);
     return getPaymentRequestById(Number(result.lastID));
+}
+async function createWebappPaymentRequest(userId, amount, workerUserId) {
+    const db = await (0, client_1.getDb)();
+    const result = await db.run(`INSERT INTO payment_requests (
+       user_id,
+       worker_user_id,
+       worker_share_amount,
+       curator_user_id,
+       curator_share_amount,
+       amount,
+       receipt_kind,
+       receipt_path,
+       receipt_file_id,
+       comment,
+       source,
+       status
+     )
+     VALUES (?, ?, 0, NULL, 0, ?, 'pending', NULL, '', NULL, 'honeybunny', 'pending')`, userId, workerUserId ?? null, amount);
+    return getPaymentRequestById(Number(result.lastID));
+}
+async function attachWebappPaymentReceipt(requestId, receiptPath, comment) {
+    const db = await (0, client_1.getDb)();
+    const request = await getPaymentRequestById(requestId);
+    if (!request || request.status !== "pending") {
+        return null;
+    }
+    await db.run(`UPDATE payment_requests
+     SET receipt_kind = 'local',
+         receipt_path = ?,
+         receipt_file_id = '',
+         comment = COALESCE(?, comment)
+     WHERE id = ?`, receiptPath, comment?.trim() || null, requestId);
+    return getPaymentRequestWithUser(requestId);
 }
 async function getPaymentRequestById(requestId) {
     const db = await (0, client_1.getDb)();
@@ -98,6 +137,16 @@ async function getPaymentRequestWithUser(requestId) {
      FROM payment_requests
      JOIN users ON users.id = payment_requests.user_id
      WHERE payment_requests.id = ?`, requestId);
+}
+function getPaymentRequestMediaInput(request) {
+    if (request.receipt_kind === "local" && request.receipt_path) {
+        const localReference = (0, media_service_1.isLocalMediaReference)(request.receipt_path) ? request.receipt_path : `local:${request.receipt_path}`;
+        return (0, media_service_1.mediaInputFromReference)(localReference);
+    }
+    if (request.receipt_file_id) {
+        return (0, media_service_1.mediaInputFromReference)(request.receipt_file_id) ?? request.receipt_file_id;
+    }
+    return null;
 }
 async function approvePaymentRequest(requestId, adminUserId) {
     const db = await (0, client_1.getDb)();

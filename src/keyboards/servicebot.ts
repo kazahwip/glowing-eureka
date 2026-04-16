@@ -1,20 +1,21 @@
 import { Markup } from "telegraf";
 import { AGREEMENT_URL, AVAILABLE_CITIES, CARD_CATEGORIES, HOME_BUTTON, REVIEWS_CHANNEL_URL, SERVICEBOT_MAIN_MENU, SUPPORT_BOT_URL, WORKER_PANEL_MENU } from "../config/constants";
+import { buildWebappUrl } from "../utils/webapp";
 
 export function servicebotMainMenuKeyboard() {
   return Markup.inlineKeyboard([
     [
-      Markup.button.callback(SERVICEBOT_MAIN_MENU[0], "service:catalog"),
-      Markup.button.callback(SERVICEBOT_MAIN_MENU[1], "service:club"),
+      Markup.button.webApp(SERVICEBOT_MAIN_MENU[0], buildWebappUrl("catalog")),
+      Markup.button.webApp(SERVICEBOT_MAIN_MENU[1], buildWebappUrl("club")),
     ],
-    [Markup.button.url(SERVICEBOT_MAIN_MENU[2], REVIEWS_CHANNEL_URL)],
+    [Markup.button.webApp(SERVICEBOT_MAIN_MENU[2], buildWebappUrl("reviews"))],
     [
-      Markup.button.callback(SERVICEBOT_MAIN_MENU[3], "service:profile"),
-      Markup.button.callback(SERVICEBOT_MAIN_MENU[4], "service:search"),
+      Markup.button.webApp(SERVICEBOT_MAIN_MENU[3], buildWebappUrl("profile")),
+      Markup.button.webApp(SERVICEBOT_MAIN_MENU[4], buildWebappUrl("search")),
     ],
     [
-      Markup.button.callback(SERVICEBOT_MAIN_MENU[5], "service:support:open"),
-      Markup.button.callback(SERVICEBOT_MAIN_MENU[6], "service:info:root"),
+      Markup.button.webApp(SERVICEBOT_MAIN_MENU[5], buildWebappUrl("support")),
+      Markup.button.webApp(SERVICEBOT_MAIN_MENU[6], buildWebappUrl("info")),
     ],
   ]);
 }

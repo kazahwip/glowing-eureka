@@ -4,7 +4,9 @@
   "description": "Система из двух Telegram-ботов на Node.js + TypeScript + Telegraf",
   "main": "bothost.js",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "npm run build:server && npm run build:webapp",
+    "build:server": "tsc -p tsconfig.json",
+    "build:webapp": "tsx src/webapp/build.ts",
     "dev:team": "tsx watch src/apps/teambot.ts",
     "dev:service": "tsx watch src/apps/servicebot.ts",
     "start": "node bothost.js",
@@ -24,8 +26,10 @@
   ],
   "license": "MIT",
   "dependencies": {
+    "@types/express": "^5.0.6",
     "@types/node": "^24.6.0",
     "dotenv": "^16.6.1",
+    "express": "^5.2.1",
     "sqlite": "^5.1.1",
     "sqlite3": "^5.1.7",
     "telegraf": "^4.16.3",

@@ -5,10 +5,13 @@ exports.isWorkerSignalEnabled = isWorkerSignalEnabled;
 exports.getUserByTelegramId = getUserByTelegramId;
 exports.getUserByUsername = getUserByUsername;
 exports.getUserById = getUserById;
+exports.getUserByFriendCode = getUserByFriendCode;
+exports.ensureUserFriendCode = ensureUserFriendCode;
 exports.registerTeambotUser = registerTeambotUser;
 exports.registerServicebotUser = registerServicebotUser;
 exports.grantWorkerAccess = grantWorkerAccess;
 exports.setUserReferrer = setUserReferrer;
+exports.activateUserFriendCode = activateUserFriendCode;
 exports.incrementUserBalance = incrementUserBalance;
 exports.updateUserPayoutDetails = updateUserPayoutDetails;
 exports.updateUserWithdrawableBalance = updateUserWithdrawableBalance;
@@ -64,9 +67,49 @@ async function getUserByUsername(username) {
     const db = await (0, client_1.getDb)();
     return db.get("SELECT * FROM users WHERE username IS NOT NULL AND LOWER(username) = LOWER(?)", normalized);
 }
+function generateFriendCodeValue() {
+    const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let value = "";
+    for (let index = 0; index < 8; index += 1) {
+        value += alphabet[Math.floor(Math.random() * alphabet.length)];
+    }
+    return value;
+}
 async function getUserById(userId) {
     const db = await (0, client_1.getDb)();
     return db.get("SELECT * FROM users WHERE id = ?", userId);
+}
+async function getUserByFriendCode(friendCode) {
+    const normalized = friendCode.trim().toUpperCase();
+    if (!normalized) {
+        return null;
+    }
+    const db = await (0, client_1.getDb)();
+    return db.get("SELECT * FROM users WHERE friend_code = ?", normalized);
+}
+async function ensureUserFriendCode(userId) {
+    const db = await (0, client_1.getDb)();
+    const existing = await getUserById(userId);
+    if (!existing) {
+        return null;
+    }
+    if (existing.friend_code) {
+        return existing.friend_code;
+    }
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+        const nextCode = generateFriendCodeValue();
+        try {
+            await db.run("UPDATE users SET friend_code = ? WHERE id = ? AND friend_code IS NULL", nextCode, userId);
+            const updated = await getUserById(userId);
+            if (updated?.friend_code) {
+                return updated.friend_code;
+            }
+        }
+        catch {
+            continue;
+        }
+    }
+    throw new Error("Не удалось сгенерировать уникальный friend code.");
 }
 async function registerTeambotUser(payload) {
     const db = await (0, client_1.getDb)();
@@ -104,6 +147,24 @@ async function setUserReferrer(userId, workerUserId) {
     const db = await (0, client_1.getDb)();
     await db.run("UPDATE users SET referred_by_user_id = ? WHERE id = ?", workerUserId, userId);
     return getUserById(userId);
+}
+async function activateUserFriendCode(userId, friendCode) {
+    const user = await getUserById(userId);
+    if (!user) {
+        return { status: "missing_user", user: null, worker: null };
+    }
+    if (user.referred_by_user_id) {
+        return { status: "already_assigned", user, worker: null };
+    }
+    const worker = await getUserByFriendCode(friendCode);
+    if (!worker || !["worker", "admin", "curator"].includes(worker.role)) {
+        return { status: "invalid_code", user, worker: null };
+    }
+    if (worker.id === user.id) {
+        return { status: "self_assign", user, worker };
+    }
+    const updated = await setUserReferrer(user.id, worker.id);
+    return { status: "activated", user: updated, worker };
 }
 async function incrementUserBalance(userId, amount) {
     const db = await (0, client_1.getDb)();

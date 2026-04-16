@@ -45,6 +45,12 @@ async function ensureUserColumns(db: Database<sqlite3.Database, sqlite3.Statemen
   const columns = await db.all<Array<{ name: string }>>("PRAGMA table_info(users)");
   const columnNames = new Set(columns.map((column) => column.name));
 
+  if (!columnNames.has("friend_code")) {
+    await db.exec("ALTER TABLE users ADD COLUMN friend_code TEXT NULL;");
+  }
+
+  await db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_friend_code ON users(friend_code);");
+
   if (!columnNames.has("referred_by_user_id")) {
     await db.exec("ALTER TABLE users ADD COLUMN referred_by_user_id INTEGER NULL;");
   }
@@ -108,7 +114,16 @@ async function ensurePaymentRequestColumns(db: Database<sqlite3.Database, sqlite
     await db.exec("ALTER TABLE payment_requests ADD COLUMN source TEXT NOT NULL DEFAULT 'honeybunny';");
   }
 
+  if (!columnNames.has("receipt_kind")) {
+    await db.exec("ALTER TABLE payment_requests ADD COLUMN receipt_kind TEXT NOT NULL DEFAULT 'telegram';");
+  }
+
+  if (!columnNames.has("receipt_path")) {
+    await db.exec("ALTER TABLE payment_requests ADD COLUMN receipt_path TEXT NULL;");
+  }
+
   await db.run("UPDATE payment_requests SET source = 'honeybunny' WHERE source IS NULL OR source = ''");
+  await db.run("UPDATE payment_requests SET receipt_kind = 'telegram' WHERE receipt_kind IS NULL OR receipt_kind = ''");
 }
 
 async function ensureCuratorColumns(db: Database<sqlite3.Database, sqlite3.Statement>) {
@@ -189,6 +204,23 @@ async function ensureProfitReportTable(db: Database<sqlite3.Database, sqlite3.St
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
       FOREIGN KEY (payment_request_id) REFERENCES payment_requests(id) ON DELETE SET NULL,
       FOREIGN KEY (admin_user_id) REFERENCES users(id) ON DELETE SET NULL
+    );
+  `);
+}
+
+async function ensureClientEventsTable(db: Database<sqlite3.Database, sqlite3.Statement>) {
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS client_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_user_id INTEGER NOT NULL,
+      worker_user_id INTEGER NOT NULL,
+      source TEXT NOT NULL DEFAULT 'webapp',
+      category TEXT NOT NULL,
+      event_name TEXT NOT NULL,
+      details TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (client_user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (worker_user_id) REFERENCES users(id) ON DELETE CASCADE
     );
   `);
 }
@@ -346,6 +378,7 @@ async function applySchema(db: Database<sqlite3.Database, sqlite3.Statement>) {
   await ensureCuratorRequestTable(db);
   await ensureWithdrawRequestTable(db);
   await ensureProfitReportTable(db);
+  await ensureClientEventsTable(db);
   await syncPayoutData(db);
   await db.run("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", [
     "transfer_details",

@@ -185,6 +185,46 @@ export async function listRecentCards(limit = 10, category?: CardCategory) {
   );
 }
 
+export async function listCardsPaginated(options: {
+  category?: CardCategory;
+  city?: string;
+  page?: number;
+  limit?: number;
+}) {
+  const db = await getDb();
+  const page = Math.max(1, options.page ?? 1);
+  const limit = Math.max(1, options.limit ?? 5);
+  const offset = (page - 1) * limit;
+  const conditions = ["is_active = 1", "review_status = 'approved'"];
+  const params: Array<string | number> = [];
+
+  if (options.category) {
+    conditions.push("category = ?");
+    params.push(options.category);
+  }
+
+  if (options.city) {
+    conditions.push("city = ?");
+    params.push(options.city);
+  }
+
+  const whereClause = conditions.join(" AND ");
+  const totalRow = await db.get<{ total: number }>(`SELECT COUNT(*) AS total FROM cards WHERE ${whereClause}`, ...params);
+  const items = await db.all<Card[]>(
+    `SELECT * FROM cards WHERE ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+    ...params,
+    limit,
+    offset,
+  );
+
+  return {
+    page,
+    limit,
+    total: totalRow?.total ?? 0,
+    items,
+  };
+}
+
 export async function listCardsByOwner(ownerUserId: number) {
   const db = await getDb();
   return db.all<Card[]>("SELECT * FROM cards WHERE owner_user_id = ? ORDER BY created_at DESC", ownerUserId);

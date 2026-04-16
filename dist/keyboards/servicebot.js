@@ -28,20 +28,21 @@ exports.workerPanelKeyboard = workerPanelKeyboard;
 exports.workerBackInlineKeyboard = workerBackInlineKeyboard;
 const telegraf_1 = require("telegraf");
 const constants_1 = require("../config/constants");
+const webapp_1 = require("../utils/webapp");
 function servicebotMainMenuKeyboard() {
     return telegraf_1.Markup.inlineKeyboard([
         [
-            telegraf_1.Markup.button.callback(constants_1.SERVICEBOT_MAIN_MENU[0], "service:catalog"),
-            telegraf_1.Markup.button.callback(constants_1.SERVICEBOT_MAIN_MENU[1], "service:club"),
+            telegraf_1.Markup.button.webApp(constants_1.SERVICEBOT_MAIN_MENU[0], (0, webapp_1.buildWebappUrl)("catalog")),
+            telegraf_1.Markup.button.webApp(constants_1.SERVICEBOT_MAIN_MENU[1], (0, webapp_1.buildWebappUrl)("club")),
         ],
-        [telegraf_1.Markup.button.url(constants_1.SERVICEBOT_MAIN_MENU[2], constants_1.REVIEWS_CHANNEL_URL)],
+        [telegraf_1.Markup.button.webApp(constants_1.SERVICEBOT_MAIN_MENU[2], (0, webapp_1.buildWebappUrl)("reviews"))],
         [
-            telegraf_1.Markup.button.callback(constants_1.SERVICEBOT_MAIN_MENU[3], "service:profile"),
-            telegraf_1.Markup.button.callback(constants_1.SERVICEBOT_MAIN_MENU[4], "service:search"),
+            telegraf_1.Markup.button.webApp(constants_1.SERVICEBOT_MAIN_MENU[3], (0, webapp_1.buildWebappUrl)("profile")),
+            telegraf_1.Markup.button.webApp(constants_1.SERVICEBOT_MAIN_MENU[4], (0, webapp_1.buildWebappUrl)("search")),
         ],
         [
-            telegraf_1.Markup.button.callback(constants_1.SERVICEBOT_MAIN_MENU[5], "service:support:open"),
-            telegraf_1.Markup.button.callback(constants_1.SERVICEBOT_MAIN_MENU[6], "service:info:root"),
+            telegraf_1.Markup.button.webApp(constants_1.SERVICEBOT_MAIN_MENU[5], (0, webapp_1.buildWebappUrl)("support")),
+            telegraf_1.Markup.button.webApp(constants_1.SERVICEBOT_MAIN_MENU[6], (0, webapp_1.buildWebappUrl)("info")),
         ],
     ]);
 }

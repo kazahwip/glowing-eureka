@@ -23,6 +23,7 @@ function adminHomeKeyboard() {
         [telegraf_1.Markup.button.callback("📊 Общая статистика", "admin:stats")],
         [telegraf_1.Markup.button.callback("👥 Пользователи", "admin:users")],
         [telegraf_1.Markup.button.callback("📋 Анкеты", "admin:cards")],
+        [telegraf_1.Markup.button.callback("🧪 Friend code", "admin:friend-codes")],
         [telegraf_1.Markup.button.callback("🧑‍💼 Кураторы", "admin:curators")],
         [telegraf_1.Markup.button.callback("💳 Реквизиты", "admin:transfer")],
         [telegraf_1.Markup.button.callback("📈 Статистика проекта", "admin:project-stats")],
@@ -144,9 +145,7 @@ function adminPaymentRequestKeyboard(requestId) {
     ]);
 }
 function adminWithdrawRequestKeyboard(requestId) {
-    return telegraf_1.Markup.inlineKeyboard([
-        [telegraf_1.Markup.button.callback("💸 Выплачено", `admin:withdraw-request:${requestId}:paid`)],
-    ]);
+    return telegraf_1.Markup.inlineKeyboard([[telegraf_1.Markup.button.callback("💸 Выплачено", `admin:withdraw-request:${requestId}:paid`)]]);
 }
 function adminProfitReportKeyboard(requestId) {
     return telegraf_1.Markup.inlineKeyboard([

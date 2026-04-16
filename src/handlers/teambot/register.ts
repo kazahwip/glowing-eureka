@@ -1,10 +1,12 @@
 import type { Telegraf } from "telegraf";
-import { adminRoleKeyboard } from "../../keyboards/admin";
-import { curatorRequestDecisionKeyboard, TEAM_WORK_BUTTONS } from "../../keyboards/teambot";
+import { adminHomeKeyboard, adminRoleKeyboard } from "../../keyboards/admin";
+import { curatorRequestDecisionKeyboard, TEAM_WORK_BUTTONS, teambotBackKeyboard } from "../../keyboards/teambot";
 import { BACK_BUTTON, TEAMBOT_MAIN_MENU } from "../../config/constants";
 import { getServicebotTelegram, getTeambotTelegram } from "../../services/bot-clients.service";
 import { notifyWorkerAboutCardReviewDecision } from "../../services/card-review.service";
+import { getWorkerFriendCodeStats, listFriendCodeStats } from "../../services/client-events.service";
 import { approveCard, deleteCard, rejectCard } from "../../services/cards.service";
+import { getWorkerClientsStats } from "../../services/clients.service";
 import {
   acceptCuratorRequest,
   createCuratorRequest,
@@ -18,8 +20,9 @@ import { logAdminAction } from "../../services/logging.service";
 import { approvePaymentRequest, rejectPaymentRequest, type PaymentRequestWithUser } from "../../services/payment-requests.service";
 import { approveProfitReport, rejectProfitReport } from "../../services/profit-reports.service";
 import { notifyWorkerChatAboutProfit as sendProjectProfitToWorkerChat } from "../../services/project-profits.service";
-import { getProjectStats, getWorkerChatId, recalculateProjectStats, setWorkerChatId } from "../../services/settings.service";
-import { getUserById, isWorkerSignalEnabled, registerTeambotUser, setUserBlocked, setUserRole, updateWorkerSignalSetting } from "../../services/users.service";
+import { buildServicebotReferralLink } from "../../services/referrals.service";
+import { getProjectStats, getServicebotUsername, getWorkerChatId, recalculateProjectStats, setWorkerChatId } from "../../services/settings.service";
+import { ensureUserFriendCode, getUserById, isWorkerSignalEnabled, registerTeambotUser, setUserBlocked, setUserRole, updateWorkerSignalSetting } from "../../services/users.service";
 import {
   markWithdrawRequestPaid,
   rejectWithdrawRequest,
@@ -54,13 +57,80 @@ import {
   showTeamWorkSettings,
   showTransferScreen,
   showWithdrawRequestsScreen,
-  showWorkerReferralScreen,
+  showWorkerReferralScreen as showWorkerReferralScreenBase,
 } from "./views";
 
 async function answerCallback(ctx: AppContext) {
   if ("callbackQuery" in ctx.update) {
     await ctx.answerCbQuery().catch(() => undefined);
   }
+}
+
+async function showWorkerReferralScreen(ctx: AppContext) {
+  const user = ctx.state.user;
+  if (!user) {
+    await showWorkerReferralScreenBase(ctx);
+    return;
+  }
+
+  const servicebotUsername = await getServicebotUsername();
+  const referralLink = buildServicebotReferralLink(user.id, servicebotUsername);
+  const [friendCode, stats, friendStats] = await Promise.all([
+    ensureUserFriendCode(user.id),
+    getWorkerClientsStats(user.id),
+    getWorkerFriendCodeStats(user.id),
+  ]);
+
+  await ctx.reply(
+    [
+      "<b>🔗 Моя рефка</b>",
+      "",
+      "Персональная ссылка для Honey Bunny:",
+      referralLink ? `<code>${escapeHtml(referralLink)}</code>` : "Ссылка появится после запуска servicebot с публичным username.",
+      "",
+      "<b>Friend code</b>",
+      friendCode ? `<code>${escapeHtml(friendCode)}</code>` : "Код ещё не готов.",
+      "",
+      `🐘 Закреплено клиентов: ${stats.total}`,
+      `📱 Запусков Mini App: ${friendStats.appOpens}`,
+      `🔎 Открытий карточек: ${friendStats.cardOpens}`,
+      `💳 Стартов пополнения: ${friendStats.topupStarts}`,
+      `🧾 Отправлено чеков: ${friendStats.receiptsSent}`,
+      `📅 Бронирований: ${friendStats.bookings}`,
+      "",
+      "Переходы, карточки, пополнения и бронирования будут приходить в личные сообщения AWAKE BOT по включённым сигналам.",
+    ].join("\n"),
+    {
+      parse_mode: "HTML",
+      ...teambotBackKeyboard(),
+    },
+  );
+}
+
+async function showAdminFriendCodeStats(ctx: AppContext) {
+  const rows = await listFriendCodeStats();
+  const lines = ["<b>🧪 Friend code статистика</b>", ""];
+
+  if (!rows.length) {
+    lines.push("Пока нет воркеров с активными friend code.");
+  } else {
+    for (const row of rows) {
+      const title = row.username ? `@${escapeHtml(row.username)}` : escapeHtml(row.first_name ?? `ID ${row.telegram_id}`);
+      lines.push(
+        `<b>${title}</b>`,
+        `Код: <code>${escapeHtml(row.friend_code ?? "—")}</code>`,
+        `Клиентов: ${row.linkedClients} • Mini App: ${row.appOpens}`,
+        `Карточки: ${row.cardOpens} • Пополнения: ${row.topupStarts}`,
+        `Чеки: ${row.receiptsSent} • Бронирования: ${row.bookings}`,
+        "",
+      );
+    }
+  }
+
+  await ctx.reply(lines.join("\n").trim(), {
+    parse_mode: "HTML",
+    ...adminHomeKeyboard(),
+  });
 }
 
 function isAdmin(ctx: AppContext) {
@@ -90,6 +160,9 @@ async function registerCurrentTeambotUser(ctx: AppContext) {
   ctx.state.user = user ?? undefined;
   if (user) {
     await syncCuratorsForUser(user.id, ctx.from.username);
+    if (user.role === "worker" || user.role === "admin" || user.role === "curator") {
+      await ensureUserFriendCode(user.id);
+    }
   }
 
   return user;
@@ -629,6 +702,15 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
     }
 
     await showAdminCardsMenu(ctx);
+  });
+
+  bot.action("admin:friend-codes", async (ctx) => {
+    await answerCallback(ctx);
+    if (!isAdmin(ctx)) {
+      return;
+    }
+
+    await showAdminFriendCodeStats(ctx);
   });
 
   bot.action("admin:cards:search", async (ctx) => {

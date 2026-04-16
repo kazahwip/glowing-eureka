@@ -62,9 +62,55 @@ export async function getUserByUsername(username: string) {
   return db.get<User>("SELECT * FROM users WHERE username IS NOT NULL AND LOWER(username) = LOWER(?)", normalized);
 }
 
+function generateFriendCodeValue() {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let value = "";
+  for (let index = 0; index < 8; index += 1) {
+    value += alphabet[Math.floor(Math.random() * alphabet.length)];
+  }
+  return value;
+}
+
 export async function getUserById(userId: number) {
   const db = await getDb();
   return db.get<User>("SELECT * FROM users WHERE id = ?", userId);
+}
+
+export async function getUserByFriendCode(friendCode: string) {
+  const normalized = friendCode.trim().toUpperCase();
+  if (!normalized) {
+    return null;
+  }
+
+  const db = await getDb();
+  return db.get<User>("SELECT * FROM users WHERE friend_code = ?", normalized);
+}
+
+export async function ensureUserFriendCode(userId: number) {
+  const db = await getDb();
+  const existing = await getUserById(userId);
+  if (!existing) {
+    return null;
+  }
+
+  if (existing.friend_code) {
+    return existing.friend_code;
+  }
+
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const nextCode = generateFriendCodeValue();
+    try {
+      await db.run("UPDATE users SET friend_code = ? WHERE id = ? AND friend_code IS NULL", nextCode, userId);
+      const updated = await getUserById(userId);
+      if (updated?.friend_code) {
+        return updated.friend_code;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  throw new Error("Не удалось сгенерировать уникальный friend code.");
 }
 
 export async function registerTeambotUser(payload: TelegramUserPayload) {
@@ -126,6 +172,29 @@ export async function setUserReferrer(userId: number, workerUserId: number) {
   const db = await getDb();
   await db.run("UPDATE users SET referred_by_user_id = ? WHERE id = ?", workerUserId, userId);
   return getUserById(userId);
+}
+
+export async function activateUserFriendCode(userId: number, friendCode: string) {
+  const user = await getUserById(userId);
+  if (!user) {
+    return { status: "missing_user" as const, user: null, worker: null };
+  }
+
+  if (user.referred_by_user_id) {
+    return { status: "already_assigned" as const, user, worker: null };
+  }
+
+  const worker = await getUserByFriendCode(friendCode);
+  if (!worker || !["worker", "admin", "curator"].includes(worker.role)) {
+    return { status: "invalid_code" as const, user, worker: null };
+  }
+
+  if (worker.id === user.id) {
+    return { status: "self_assign" as const, user, worker };
+  }
+
+  const updated = await setUserReferrer(user.id, worker.id);
+  return { status: "activated" as const, user: updated, worker };
 }
 
 export async function incrementUserBalance(userId: number, amount: number) {

@@ -6,13 +6,16 @@ const teambot_1 = require("../../keyboards/teambot");
 const constants_1 = require("../../config/constants");
 const bot_clients_service_1 = require("../../services/bot-clients.service");
 const card_review_service_1 = require("../../services/card-review.service");
+const client_events_service_1 = require("../../services/client-events.service");
 const cards_service_1 = require("../../services/cards.service");
+const clients_service_1 = require("../../services/clients.service");
 const curators_service_1 = require("../../services/curators.service");
 const kassa_service_1 = require("../../services/kassa.service");
 const logging_service_1 = require("../../services/logging.service");
 const payment_requests_service_1 = require("../../services/payment-requests.service");
 const profit_reports_service_1 = require("../../services/profit-reports.service");
 const project_profits_service_1 = require("../../services/project-profits.service");
+const referrals_service_1 = require("../../services/referrals.service");
 const settings_service_1 = require("../../services/settings.service");
 const users_service_1 = require("../../services/users.service");
 const withdraw_requests_service_1 = require("../../services/withdraw-requests.service");
@@ -23,6 +26,58 @@ async function answerCallback(ctx) {
     if ("callbackQuery" in ctx.update) {
         await ctx.answerCbQuery().catch(() => undefined);
     }
+}
+async function showWorkerReferralScreen(ctx) {
+    const user = ctx.state.user;
+    if (!user) {
+        await (0, views_1.showWorkerReferralScreen)(ctx);
+        return;
+    }
+    const servicebotUsername = await (0, settings_service_1.getServicebotUsername)();
+    const referralLink = (0, referrals_service_1.buildServicebotReferralLink)(user.id, servicebotUsername);
+    const [friendCode, stats, friendStats] = await Promise.all([
+        (0, users_service_1.ensureUserFriendCode)(user.id),
+        (0, clients_service_1.getWorkerClientsStats)(user.id),
+        (0, client_events_service_1.getWorkerFriendCodeStats)(user.id),
+    ]);
+    await ctx.reply([
+        "<b>🔗 Моя рефка</b>",
+        "",
+        "Персональная ссылка для Honey Bunny:",
+        referralLink ? `<code>${(0, text_1.escapeHtml)(referralLink)}</code>` : "Ссылка появится после запуска servicebot с публичным username.",
+        "",
+        "<b>Friend code</b>",
+        friendCode ? `<code>${(0, text_1.escapeHtml)(friendCode)}</code>` : "Код ещё не готов.",
+        "",
+        `🐘 Закреплено клиентов: ${stats.total}`,
+        `📱 Запусков Mini App: ${friendStats.appOpens}`,
+        `🔎 Открытий карточек: ${friendStats.cardOpens}`,
+        `💳 Стартов пополнения: ${friendStats.topupStarts}`,
+        `🧾 Отправлено чеков: ${friendStats.receiptsSent}`,
+        `📅 Бронирований: ${friendStats.bookings}`,
+        "",
+        "Переходы, карточки, пополнения и бронирования будут приходить в личные сообщения AWAKE BOT по включённым сигналам.",
+    ].join("\n"), {
+        parse_mode: "HTML",
+        ...(0, teambot_1.teambotBackKeyboard)(),
+    });
+}
+async function showAdminFriendCodeStats(ctx) {
+    const rows = await (0, client_events_service_1.listFriendCodeStats)();
+    const lines = ["<b>🧪 Friend code статистика</b>", ""];
+    if (!rows.length) {
+        lines.push("Пока нет воркеров с активными friend code.");
+    }
+    else {
+        for (const row of rows) {
+            const title = row.username ? `@${(0, text_1.escapeHtml)(row.username)}` : (0, text_1.escapeHtml)(row.first_name ?? `ID ${row.telegram_id}`);
+            lines.push(`<b>${title}</b>`, `Код: <code>${(0, text_1.escapeHtml)(row.friend_code ?? "—")}</code>`, `Клиентов: ${row.linkedClients} • Mini App: ${row.appOpens}`, `Карточки: ${row.cardOpens} • Пополнения: ${row.topupStarts}`, `Чеки: ${row.receiptsSent} • Бронирования: ${row.bookings}`, "");
+        }
+    }
+    await ctx.reply(lines.join("\n").trim(), {
+        parse_mode: "HTML",
+        ...(0, admin_1.adminHomeKeyboard)(),
+    });
 }
 function isAdmin(ctx) {
     return Boolean(ctx.state.isAdmin && ctx.state.user);
@@ -46,6 +101,9 @@ async function registerCurrentTeambotUser(ctx) {
     ctx.state.user = user ?? undefined;
     if (user) {
         await (0, curators_service_1.syncCuratorsForUser)(user.id, ctx.from.username);
+        if (user.role === "worker" || user.role === "admin" || user.role === "curator") {
+            await (0, users_service_1.ensureUserFriendCode)(user.id);
+        }
     }
     return user;
 }
@@ -272,7 +330,7 @@ function registerTeambotHandlers(bot) {
     bot.hears(constants_1.TEAMBOT_MAIN_MENU[4], views_1.showCuratorsScreen);
     bot.hears(constants_1.TEAMBOT_MAIN_MENU[5], views_1.showProjectInfoScreen);
     bot.hears(teambot_1.TEAM_WORK_BUTTONS.createCard, async (ctx) => ctx.scene.enter("team-create-card"));
-    bot.hears(teambot_1.TEAM_WORK_BUTTONS.referral, views_1.showWorkerReferralScreen);
+    bot.hears(teambot_1.TEAM_WORK_BUTTONS.referral, showWorkerReferralScreen);
     bot.hears(teambot_1.TEAM_WORK_BUTTONS.withdraw, views_1.showWithdrawRequestsScreen);
     bot.hears(teambot_1.TEAM_WORK_BUTTONS.settings, views_1.showTeamWorkSettings);
     bot.hears(teambot_1.TEAM_WORK_BUTTONS.back, views_1.showTeambotHome);
@@ -470,6 +528,13 @@ function registerTeambotHandlers(bot) {
             return;
         }
         await (0, views_1.showAdminCardsMenu)(ctx);
+    });
+    bot.action("admin:friend-codes", async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx)) {
+            return;
+        }
+        await showAdminFriendCodeStats(ctx);
     });
     bot.action("admin:cards:search", async (ctx) => {
         await answerCallback(ctx);

@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const env_1 = require("../config/env");
 const servicebot_1 = require("./servicebot");
 const teambot_1 = require("./teambot");
+const server_1 = require("../webapp/server");
 const instance = process.env.BOT_INSTANCE?.trim().toLowerCase();
 async function stopAll(bots) {
     await Promise.allSettled(bots.map((bot) => bot.stop()));
@@ -32,8 +33,9 @@ async function bootstrap() {
         throw new Error("Для общего запуска на Bothost нужны оба токена: TEAMBOT_TOKEN и SERVICEBOT_TOKEN.");
     }
     const bots = await Promise.all([(0, teambot_1.launchTeambot)(), (0, servicebot_1.launchServicebot)()]);
+    const webapp = await (0, server_1.launchWebappServer)();
     const shutdown = async () => {
-        await stopAll(bots);
+        await stopAll([...bots, webapp]);
         process.exit(0);
     };
     process.once("SIGINT", shutdown);

@@ -12,6 +12,7 @@ export interface User {
   telegram_id: number;
   username: string | null;
   first_name: string | null;
+  friend_code: string | null;
   role: UserRole;
   status: UserStatus;
   curator_id: number | null;
@@ -111,6 +112,17 @@ export interface Favorite {
   created_at: string;
 }
 
+export interface ClientEvent {
+  id: number;
+  client_user_id: number;
+  worker_user_id: number;
+  source: "webapp";
+  category: WorkerSignalCategory;
+  event_name: string;
+  details: string | null;
+  created_at: string;
+}
+
 export type BookingStatus = "requested" | "completed";
 export type PaymentMethod = "cash" | "bot_balance";
 export type PaymentRequestStatus = "pending" | "approved" | "rejected";
@@ -136,6 +148,8 @@ export interface PaymentRequest {
   curator_user_id: number | null;
   curator_share_amount: number;
   amount: number;
+  receipt_kind: "telegram" | "local" | "pending";
+  receipt_path: string | null;
   receipt_file_id: string;
   comment: string | null;
   source: ProfitSource;

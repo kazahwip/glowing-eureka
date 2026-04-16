@@ -2,6 +2,7 @@ import type sqlite3 from "sqlite3";
 import type { Database } from "sqlite";
 import { getDb } from "../db/client";
 import type { PaymentRequest } from "../types/entities";
+import { isLocalMediaReference, mediaInputFromReference } from "./media.service";
 
 export interface PaymentRequestWithUser extends PaymentRequest {
   telegram_id: number;
@@ -124,12 +125,14 @@ export async function createPaymentRequest(
        curator_user_id,
        curator_share_amount,
        amount,
+       receipt_kind,
+       receipt_path,
        receipt_file_id,
        comment,
        source,
        status
      )
-     VALUES (?, ?, 0, NULL, 0, ?, ?, ?, 'honeybunny', 'pending')`,
+     VALUES (?, ?, 0, NULL, 0, ?, 'telegram', NULL, ?, ?, 'honeybunny', 'pending')`,
     userId,
     workerUserId ?? null,
     amount,
@@ -138,6 +141,54 @@ export async function createPaymentRequest(
   );
 
   return getPaymentRequestById(Number(result.lastID));
+}
+
+export async function createWebappPaymentRequest(userId: number, amount: number, workerUserId?: number | null) {
+  const db = await getDb();
+  const result = await db.run(
+    `INSERT INTO payment_requests (
+       user_id,
+       worker_user_id,
+       worker_share_amount,
+       curator_user_id,
+       curator_share_amount,
+       amount,
+       receipt_kind,
+       receipt_path,
+       receipt_file_id,
+       comment,
+       source,
+       status
+     )
+     VALUES (?, ?, 0, NULL, 0, ?, 'pending', NULL, '', NULL, 'honeybunny', 'pending')`,
+    userId,
+    workerUserId ?? null,
+    amount,
+  );
+
+  return getPaymentRequestById(Number(result.lastID));
+}
+
+export async function attachWebappPaymentReceipt(requestId: number, receiptPath: string, comment?: string) {
+  const db = await getDb();
+  const request = await getPaymentRequestById(requestId);
+  if (!request || request.status !== "pending") {
+    return null;
+  }
+
+  await db.run(
+    `UPDATE payment_requests
+     SET receipt_kind = 'local',
+         receipt_path = ?,
+         receipt_file_id = '',
+         comment = COALESCE(?, comment)
+     WHERE id = ?`,
+    receiptPath,
+    comment?.trim() || null,
+    requestId,
+  );
+
+  return getPaymentRequestWithUser(requestId);
 }
 
 export async function getPaymentRequestById(requestId: number) {
@@ -158,6 +209,19 @@ export async function getPaymentRequestWithUser(requestId: number) {
      WHERE payment_requests.id = ?`,
     requestId,
   );
+}
+
+export function getPaymentRequestMediaInput(request: Pick<PaymentRequest, "receipt_kind" | "receipt_path" | "receipt_file_id">) {
+  if (request.receipt_kind === "local" && request.receipt_path) {
+    const localReference = isLocalMediaReference(request.receipt_path) ? request.receipt_path : `local:${request.receipt_path}`;
+    return mediaInputFromReference(localReference);
+  }
+
+  if (request.receipt_file_id) {
+    return mediaInputFromReference(request.receipt_file_id) ?? request.receipt_file_id;
+  }
+
+  return null;
 }
 
 export async function approvePaymentRequest(requestId: number, adminUserId: number) {

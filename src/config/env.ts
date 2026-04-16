@@ -8,6 +8,9 @@ const envSchema = z.object({
   NODE_ENV: z.enum(["development", "production"]).default("development"),
   TEAMBOT_TOKEN: z.string().default(""),
   SERVICEBOT_TOKEN: z.string().default(""),
+  WEBAPP_BASE_URL: z.string().default("http://localhost:3000/webapp"),
+  WEBAPP_PORT: z.coerce.number().default(3000),
+  WEBAPP_SECRET_MODE: z.enum(["telegram_init_data"]).default("telegram_init_data"),
   ADMIN_TELEGRAM_IDS: z.string().default(""),
   SUPPORT_NOTIFY_IDS: z.string().default(""),
   DATABASE_PATH: z.string().default("./data/awake.sqlite"),
@@ -38,6 +41,9 @@ export const config = {
   nodeEnv: env.NODE_ENV,
   teambotToken: env.TEAMBOT_TOKEN,
   servicebotToken: env.SERVICEBOT_TOKEN,
+  webappBaseUrl: env.WEBAPP_BASE_URL,
+  webappPort: env.WEBAPP_PORT,
+  webappSecretMode: env.WEBAPP_SECRET_MODE,
   adminTelegramIds: toIdList(env.ADMIN_TELEGRAM_IDS),
   supportNotifyIds: toIdList(env.SUPPORT_NOTIFY_IDS),
   databasePath: path.resolve(env.DATABASE_PATH),
@@ -49,4 +55,3 @@ export const config = {
 } as const;
 
 export type AppConfig = typeof config;
-

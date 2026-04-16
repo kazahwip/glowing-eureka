@@ -6,6 +6,7 @@ export function adminHomeKeyboard() {
     [Markup.button.callback("📊 Общая статистика", "admin:stats")],
     [Markup.button.callback("👥 Пользователи", "admin:users")],
     [Markup.button.callback("📋 Анкеты", "admin:cards")],
+    [Markup.button.callback("🧪 Friend code", "admin:friend-codes")],
     [Markup.button.callback("🧑‍💼 Кураторы", "admin:curators")],
     [Markup.button.callback("💳 Реквизиты", "admin:transfer")],
     [Markup.button.callback("📈 Статистика проекта", "admin:project-stats")],
@@ -165,9 +166,7 @@ export function adminPaymentRequestKeyboard(requestId: number) {
 }
 
 export function adminWithdrawRequestKeyboard(requestId: number) {
-  return Markup.inlineKeyboard([
-    [Markup.button.callback("💸 Выплачено", `admin:withdraw-request:${requestId}:paid`)],
-  ]);
+  return Markup.inlineKeyboard([[Markup.button.callback("💸 Выплачено", `admin:withdraw-request:${requestId}:paid`)]]);
 }
 
 export function adminProfitReportKeyboard(requestId: number) {

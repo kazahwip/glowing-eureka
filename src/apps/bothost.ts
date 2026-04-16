@@ -1,8 +1,9 @@
 import { config } from "../config/env";
 import { launchServicebot, type RunningServicebot } from "./servicebot";
 import { launchTeambot, type RunningTeambot } from "./teambot";
+import { launchWebappServer, type RunningWebappServer } from "../webapp/server";
 
-type RunningBot = RunningTeambot | RunningServicebot;
+type RunningBot = RunningTeambot | RunningServicebot | RunningWebappServer;
 
 const instance = process.env.BOT_INSTANCE?.trim().toLowerCase();
 
@@ -44,9 +45,10 @@ async function bootstrap() {
   }
 
   const bots = await Promise.all([launchTeambot(), launchServicebot()]);
+  const webapp = await launchWebappServer();
 
   const shutdown = async () => {
-    await stopAll(bots);
+    await stopAll([...bots, webapp]);
     process.exit(0);
   };
 

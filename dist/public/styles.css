@@ -1,0 +1,291 @@
+:root {
+  --bg: #f4f4f1;
+  --panel: rgba(255, 255, 255, 0.86);
+  --panel-strong: rgba(255, 255, 255, 0.95);
+  --text: #191919;
+  --muted: #6c6a66;
+  --line: rgba(25, 25, 25, 0.08);
+  --accent: #101010;
+  --accent-soft: #dcd7ce;
+  --shadow: 0 18px 50px rgba(0, 0, 0, 0.08);
+  --radius: 28px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.85), transparent 38%),
+    linear-gradient(180deg, #f8f7f3 0%, #eeece7 100%);
+  color: var(--text);
+}
+
+body {
+  padding: 18px 14px calc(26px + env(safe-area-inset-bottom));
+}
+
+#app {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.shell {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.hero,
+.section,
+.sheet,
+.card {
+  background: var(--panel);
+  backdrop-filter: blur(28px);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow: var(--shadow);
+  border-radius: var(--radius);
+}
+
+.hero {
+  padding: 24px;
+}
+
+.eyebrow {
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.hero h1,
+.section h2,
+.sheet h2 {
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.hero h1 {
+  font-size: clamp(30px, 8vw, 54px);
+  line-height: 0.95;
+}
+
+.hero p,
+.section p,
+.muted {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.section {
+  padding: 20px;
+}
+
+.grid {
+  display: grid;
+  gap: 14px;
+}
+
+.grid.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.button,
+.chip,
+.tab {
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: white;
+  padding: 13px 18px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.button.secondary,
+.chip,
+.tab {
+  background: rgba(16, 16, 16, 0.06);
+  color: var(--text);
+}
+
+.button.ghost {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.button-row,
+.tabs,
+.chips,
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.nav {
+  position: sticky;
+  bottom: 10px;
+  padding: 10px;
+  background: var(--panel-strong);
+  border-radius: 999px;
+  backdrop-filter: blur(24px);
+  box-shadow: var(--shadow);
+  justify-content: space-between;
+}
+
+.nav button {
+  flex: 1;
+  min-width: 88px;
+}
+
+.list {
+  display: grid;
+  gap: 14px;
+}
+
+.card {
+  overflow: hidden;
+}
+
+.card img,
+.gallery img {
+  display: block;
+  width: 100%;
+  object-fit: cover;
+}
+
+.card-body {
+  padding: 18px;
+}
+
+.card-title {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin-bottom: 6px;
+}
+
+.meta {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.price {
+  margin-top: 10px;
+  font-size: 15px;
+}
+
+.gallery {
+  display: grid;
+  gap: 10px;
+}
+
+.gallery-main {
+  border-radius: 24px;
+  overflow: hidden;
+}
+
+.gallery-thumbs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.gallery-thumbs button {
+  border: 0;
+  padding: 0;
+  border-radius: 18px;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.content-html {
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.content-html b {
+  font-weight: 700;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.stat-row:last-child {
+  border-bottom: 0;
+}
+
+.empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+}
+
+.field input,
+.field textarea,
+.field select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.72);
+  font: inherit;
+}
+
+.field textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.banner {
+  border-radius: 30px;
+  background: linear-gradient(140deg, #111 0%, #665335 44%, #f1d7a3 100%);
+  padding: 28px;
+  color: white;
+}
+
+.banner h2 {
+  font-size: clamp(26px, 7vw, 42px);
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.split {
+  display: grid;
+  gap: 14px;
+}
+
+@media (min-width: 720px) {
+  .split {
+    grid-template-columns: 1.1fr 0.9fr;
+  }
+}

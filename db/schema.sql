@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS users (
   telegram_id INTEGER NOT NULL UNIQUE,
   username TEXT,
   first_name TEXT,
+  friend_code TEXT UNIQUE,
   role TEXT NOT NULL DEFAULT 'client',
   status TEXT NOT NULL DEFAULT 'active',
   curator_id INTEGER NULL,
@@ -126,6 +127,8 @@ CREATE TABLE IF NOT EXISTS payment_requests (
   curator_user_id INTEGER NULL,
   curator_share_amount REAL NOT NULL DEFAULT 0,
   amount REAL NOT NULL,
+  receipt_kind TEXT NOT NULL DEFAULT 'telegram',
+  receipt_path TEXT NULL,
   receipt_file_id TEXT NOT NULL,
   comment TEXT,
   source TEXT NOT NULL DEFAULT 'honeybunny',
@@ -201,6 +204,19 @@ CREATE TABLE IF NOT EXISTS favorites (
   UNIQUE(user_id, card_id),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS client_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  client_user_id INTEGER NOT NULL,
+  worker_user_id INTEGER NOT NULL,
+  source TEXT NOT NULL DEFAULT 'webapp',
+  category TEXT NOT NULL,
+  event_name TEXT NOT NULL,
+  details TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (client_user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (worker_user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 INSERT OR IGNORE INTO settings (key, value) VALUES

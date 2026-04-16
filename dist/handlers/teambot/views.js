@@ -30,6 +30,7 @@ const telegraf_1 = require("telegraf");
 const admin_1 = require("../../keyboards/admin");
 const teambot_1 = require("../../keyboards/teambot");
 const cards_service_1 = require("../../services/cards.service");
+const client_events_service_1 = require("../../services/client-events.service");
 const clients_service_1 = require("../../services/clients.service");
 const curators_service_1 = require("../../services/curators.service");
 const kassa_service_1 = require("../../services/kassa.service");
@@ -142,7 +143,11 @@ async function showWorkerReferralScreen(ctx) {
     }
     const servicebotUsername = await (0, settings_service_1.getServicebotUsername)();
     const referralLink = (0, referrals_service_1.buildServicebotReferralLink)(user.id, servicebotUsername);
-    const stats = await (0, clients_service_1.getWorkerClientsStats)(user.id);
+    const [stats, friendCode, friendCodeStats] = await Promise.all([
+        (0, clients_service_1.getWorkerClientsStats)(user.id),
+        (0, users_service_1.ensureUserFriendCode)(user.id),
+        (0, client_events_service_1.getWorkerFriendCodeStats)(user.id),
+    ]);
     await ctx.reply([
         "<b>🔗 Моя рефка</b>",
         "",

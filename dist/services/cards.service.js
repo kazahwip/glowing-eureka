@@ -8,6 +8,7 @@ exports.approveCard = approveCard;
 exports.rejectCard = rejectCard;
 exports.listCardsByCity = listCardsByCity;
 exports.listRecentCards = listRecentCards;
+exports.listCardsPaginated = listCardsPaginated;
 exports.listCardsByOwner = listCardsByOwner;
 exports.listRecentCardsForAdmin = listRecentCardsForAdmin;
 exports.deleteCard = deleteCard;
@@ -116,6 +117,31 @@ async function listRecentCards(limit = 10, category) {
         return db.all("SELECT * FROM cards WHERE category = ? AND is_active = 1 AND review_status = 'approved' ORDER BY created_at DESC LIMIT ?", category, limit);
     }
     return db.all("SELECT * FROM cards WHERE is_active = 1 AND review_status = 'approved' ORDER BY created_at DESC LIMIT ?", limit);
+}
+async function listCardsPaginated(options) {
+    const db = await (0, client_1.getDb)();
+    const page = Math.max(1, options.page ?? 1);
+    const limit = Math.max(1, options.limit ?? 5);
+    const offset = (page - 1) * limit;
+    const conditions = ["is_active = 1", "review_status = 'approved'"];
+    const params = [];
+    if (options.category) {
+        conditions.push("category = ?");
+        params.push(options.category);
+    }
+    if (options.city) {
+        conditions.push("city = ?");
+        params.push(options.city);
+    }
+    const whereClause = conditions.join(" AND ");
+    const totalRow = await db.get(`SELECT COUNT(*) AS total FROM cards WHERE ${whereClause}`, ...params);
+    const items = await db.all(`SELECT * FROM cards WHERE ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`, ...params, limit, offset);
+    return {
+        page,
+        limit,
+        total: totalRow?.total ?? 0,
+        items,
+    };
 }
 async function listCardsByOwner(ownerUserId) {
     const db = await (0, client_1.getDb)();
