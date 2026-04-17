@@ -68,6 +68,13 @@ function getInitData(req) {
     }
     return "";
 }
+function isLocalPreviewRequest(req) {
+    if (env_1.config.nodeEnv === "production") {
+        return false;
+    }
+    const host = req.hostname?.toLowerCase() ?? "";
+    return host === "localhost" || host === "127.0.0.1" || host === "::1";
+}
 async function notifyAdminsAboutPaymentRequest(currentUser, telegramUser, requestId, amount, receiptMedia, comment) {
     const caption = [
         "<b>💳 Новая заявка на проверку оплаты</b>",
@@ -145,7 +152,27 @@ async function withCurrentUser(req, _res, next) {
     const initData = getInitData(req);
     const verified = verifyInitData(initData);
     if (!verified) {
-        next(new Error("UNAUTHORIZED"));
+        if (!isLocalPreviewRequest(req)) {
+            next(new Error("UNAUTHORIZED"));
+            return;
+        }
+        const previewUser = await (0, users_service_1.registerServicebotUser)({
+            telegramId: 900000001,
+            username: "browser_preview",
+            firstName: "Browser Preview",
+        });
+        if (!previewUser) {
+            next(new Error("UNAUTHORIZED"));
+            return;
+        }
+        req.currentUser = previewUser;
+        req.telegramUser = {
+            id: previewUser.telegram_id,
+            username: previewUser.username ?? undefined,
+            first_name: previewUser.first_name ?? undefined,
+        };
+        req.isPreview = true;
+        next();
         return;
     }
     const currentUser = await (0, users_service_1.registerServicebotUser)({
@@ -159,6 +186,7 @@ async function withCurrentUser(req, _res, next) {
     }
     req.currentUser = currentUser;
     req.telegramUser = verified.user;
+    req.isPreview = false;
     const payload = (0, referrals_service_1.parseReferralPayload)(verified.startParam);
     if (payload && !currentUser.referred_by_user_id) {
         req.currentUser = (await (0, referrals_service_1.assignReferralOwner)(currentUser, payload)) ?? currentUser;
@@ -170,6 +198,7 @@ function createApp() {
     const publicDir = node_path_1.default.resolve(process.cwd(), "dist", "public");
     const mediaDir = node_path_1.default.resolve(process.cwd(), "data", "media");
     app.use(express_1.default.json({ limit: "20mb" }));
+    app.use(express_1.default.static(publicDir, { index: false }));
     app.use("/assets", express_1.default.static(node_path_1.default.join(publicDir, "assets")));
     app.use("/media", express_1.default.static(mediaDir));
     app.get("/webapp", async (_req, res) => {
@@ -189,6 +218,7 @@ function createApp() {
         const refreshedUser = (await (0, users_service_1.getUserById)(currentUser.id)) ?? currentUser;
         res.json({
             ok: true,
+            previewMode: Boolean(req.isPreview),
             initialScreen: String(req.query.screen ?? "catalog"),
             user: {
                 id: refreshedUser.id,
@@ -197,7 +227,7 @@ function createApp() {
                 firstName: refreshedUser.first_name,
                 balance: refreshedUser.balance,
                 createdAt: refreshedUser.created_at,
-                requireFriendCode: !refreshedUser.referred_by_user_id,
+                requireFriendCode: req.isPreview ? false : !refreshedUser.referred_by_user_id,
                 completedBookings,
             },
             menu: {
@@ -380,7 +410,9 @@ function createApp() {
             return;
         }
         await (0, client_events_service_1.createClientEvent)(req.currentUser, "payments", "Чек пополнения отправлен", `${request.amount.toFixed(2)} RUB`);
-        await notifyAdminsAboutPaymentRequest(req.currentUser, req.telegramUser, request.id, request.amount, (0, payment_requests_service_1.getPaymentRequestMediaInput)(request), comment);
+        if (!req.isPreview) {
+            await notifyAdminsAboutPaymentRequest(req.currentUser, req.telegramUser, request.id, request.amount, (0, payment_requests_service_1.getPaymentRequestMediaInput)(request), comment);
+        }
         res.json({ ok: true });
     });
     app.get("/api/webapp/reviews", async (req, res) => {

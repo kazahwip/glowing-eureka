@@ -3,39 +3,27 @@ import { AGREEMENT_URL, AVAILABLE_CITIES, CARD_CATEGORIES, HOME_BUTTON, REVIEWS_
 import { buildWebappUrl, isWebappEnabled } from "../utils/webapp";
 
 export function servicebotMainMenuKeyboard() {
-  if (!isWebappEnabled()) {
-    return Markup.inlineKeyboard([
-      [
-        Markup.button.callback(SERVICEBOT_MAIN_MENU[0], "service:catalog"),
-        Markup.button.callback(SERVICEBOT_MAIN_MENU[1], "service:club"),
-      ],
-      [Markup.button.url(SERVICEBOT_MAIN_MENU[2], REVIEWS_CHANNEL_URL)],
-      [
-        Markup.button.callback(SERVICEBOT_MAIN_MENU[3], "service:profile"),
-        Markup.button.callback(SERVICEBOT_MAIN_MENU[4], "service:search"),
-      ],
-      [
-        Markup.button.callback(SERVICEBOT_MAIN_MENU[5], "service:support:open"),
-        Markup.button.callback(SERVICEBOT_MAIN_MENU[6], "service:info:root"),
-      ],
-    ]);
+  const rows: Array<any[]> = [
+    [
+      Markup.button.callback(SERVICEBOT_MAIN_MENU[0], "service:catalog"),
+      Markup.button.callback(SERVICEBOT_MAIN_MENU[1], "service:club"),
+    ],
+    [Markup.button.url(SERVICEBOT_MAIN_MENU[2], REVIEWS_CHANNEL_URL)],
+    [
+      Markup.button.callback(SERVICEBOT_MAIN_MENU[3], "service:profile"),
+      Markup.button.callback(SERVICEBOT_MAIN_MENU[4], "service:search"),
+    ],
+    [
+      Markup.button.callback(SERVICEBOT_MAIN_MENU[5], "service:support:open"),
+      Markup.button.callback(SERVICEBOT_MAIN_MENU[6], "service:info:root"),
+    ],
+  ];
+
+  if (isWebappEnabled()) {
+    rows.push([Markup.button.webApp("🌐 Открыть сайт", buildWebappUrl("catalog")!)]);
   }
 
-  return Markup.inlineKeyboard([
-    [
-      Markup.button.webApp(SERVICEBOT_MAIN_MENU[0], buildWebappUrl("catalog")!),
-      Markup.button.webApp(SERVICEBOT_MAIN_MENU[1], buildWebappUrl("club")!),
-    ],
-    [Markup.button.webApp(SERVICEBOT_MAIN_MENU[2], buildWebappUrl("reviews")!)],
-    [
-      Markup.button.webApp(SERVICEBOT_MAIN_MENU[3], buildWebappUrl("profile")!),
-      Markup.button.webApp(SERVICEBOT_MAIN_MENU[4], buildWebappUrl("search")!),
-    ],
-    [
-      Markup.button.webApp(SERVICEBOT_MAIN_MENU[5], buildWebappUrl("support")!),
-      Markup.button.webApp(SERVICEBOT_MAIN_MENU[6], buildWebappUrl("info")!),
-    ],
-  ]);
+  return Markup.inlineKeyboard(rows as never);
 }
 
 export function serviceProfileKeyboard() {

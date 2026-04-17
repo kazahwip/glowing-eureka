@@ -32,9 +32,8 @@ import {
   ensureUserFriendCode,
   getUserById,
   registerServicebotUser,
-  type getUserByTelegramId,
 } from "../services/users.service";
-import type { CardCategory, PaymentMethod, User, WorkerSignalCategory } from "../types/entities";
+import type { CardCategory, User } from "../types/entities";
 import { buildMediaUrl } from "../utils/webapp";
 
 type TelegramWebAppUser = {
@@ -46,6 +45,7 @@ type TelegramWebAppUser = {
 type WebappRequest = Request & {
   currentUser?: User;
   telegramUser?: TelegramWebAppUser;
+  isPreview?: boolean;
 };
 
 export type RunningWebappServer = {
@@ -99,6 +99,15 @@ function getInitData(req: Request) {
   }
 
   return "";
+}
+
+function isLocalPreviewRequest(req: Request) {
+  if (config.nodeEnv === "production") {
+    return false;
+  }
+
+  const host = req.hostname?.toLowerCase() ?? "";
+  return host === "localhost" || host === "127.0.0.1" || host === "::1";
 }
 
 async function notifyAdminsAboutPaymentRequest(
@@ -190,7 +199,30 @@ async function withCurrentUser(req: WebappRequest, _res: Response, next: NextFun
   const initData = getInitData(req);
   const verified = verifyInitData(initData);
   if (!verified) {
-    next(new Error("UNAUTHORIZED"));
+    if (!isLocalPreviewRequest(req)) {
+      next(new Error("UNAUTHORIZED"));
+      return;
+    }
+
+    const previewUser = await registerServicebotUser({
+      telegramId: 900000001,
+      username: "browser_preview",
+      firstName: "Browser Preview",
+    });
+
+    if (!previewUser) {
+      next(new Error("UNAUTHORIZED"));
+      return;
+    }
+
+    req.currentUser = previewUser;
+    req.telegramUser = {
+      id: previewUser.telegram_id,
+      username: previewUser.username ?? undefined,
+      first_name: previewUser.first_name ?? undefined,
+    };
+    req.isPreview = true;
+    next();
     return;
   }
 
@@ -207,6 +239,7 @@ async function withCurrentUser(req: WebappRequest, _res: Response, next: NextFun
 
   req.currentUser = currentUser;
   req.telegramUser = verified.user;
+  req.isPreview = false;
 
   const payload = parseReferralPayload(verified.startParam);
   if (payload && !currentUser.referred_by_user_id) {
@@ -222,6 +255,7 @@ function createApp() {
   const mediaDir = path.resolve(process.cwd(), "data", "media");
 
   app.use(express.json({ limit: "20mb" }));
+  app.use(express.static(publicDir, { index: false }));
   app.use("/assets", express.static(path.join(publicDir, "assets")));
   app.use("/media", express.static(mediaDir));
   app.get("/webapp", async (_req, res) => {
@@ -246,6 +280,7 @@ function createApp() {
 
     res.json({
       ok: true,
+      previewMode: Boolean(req.isPreview),
       initialScreen: String(req.query.screen ?? "catalog"),
       user: {
         id: refreshedUser.id,
@@ -254,7 +289,7 @@ function createApp() {
         firstName: refreshedUser.first_name,
         balance: refreshedUser.balance,
         createdAt: refreshedUser.created_at,
-        requireFriendCode: !refreshedUser.referred_by_user_id,
+        requireFriendCode: req.isPreview ? false : !refreshedUser.referred_by_user_id,
         completedBookings,
       },
       menu: {
@@ -468,14 +503,16 @@ function createApp() {
     }
 
     await createClientEvent(req.currentUser!, "payments", "Чек пополнения отправлен", `${request.amount.toFixed(2)} RUB`);
-    await notifyAdminsAboutPaymentRequest(
-      req.currentUser!,
-      req.telegramUser!,
-      request.id,
-      request.amount,
-      getPaymentRequestMediaInput(request),
-      comment,
-    );
+    if (!req.isPreview) {
+      await notifyAdminsAboutPaymentRequest(
+        req.currentUser!,
+        req.telegramUser!,
+        request.id,
+        request.amount,
+        getPaymentRequestMediaInput(request),
+        comment,
+      );
+    }
     res.json({ ok: true });
   });
 
