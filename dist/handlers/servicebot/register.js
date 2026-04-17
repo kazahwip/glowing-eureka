@@ -6,6 +6,7 @@ const cards_service_1 = require("../../services/cards.service");
 const clients_service_1 = require("../../services/clients.service");
 const favorites_service_1 = require("../../services/favorites.service");
 const servicebot_1 = require("../../keyboards/servicebot");
+const servicebot_audit_service_1 = require("../../services/servicebot-audit.service");
 const referrals_service_1 = require("../../services/referrals.service");
 const showcase_service_1 = require("../../services/showcase.service");
 const users_service_1 = require("../../services/users.service");
@@ -51,6 +52,17 @@ async function trackRefAction(ctx, category, action, details) {
         details,
     });
 }
+async function trackAuditAction(ctx, action, details) {
+    if (!ctx.from) {
+        return;
+    }
+    await (0, servicebot_audit_service_1.sendServicebotAuditEvent)({
+        telegramId: ctx.from.id,
+        username: ctx.from.username,
+        action,
+        details,
+    });
+}
 async function handleStartReferral(ctx) {
     const user = ctx.state.user;
     const payload = (0, referrals_service_1.parseReferralPayload)(getStartPayload(ctx));
@@ -73,6 +85,12 @@ async function handleStartReferral(ctx) {
 }
 function registerServicebotHandlers(bot) {
     bot.on("inline_query", async (ctx) => {
+        await (0, servicebot_audit_service_1.sendServicebotAuditEvent)({
+            telegramId: ctx.inlineQuery.from.id,
+            username: ctx.inlineQuery.from.username,
+            action: "inline_query",
+            details: ctx.inlineQuery.query.trim() || "empty",
+        });
         const cardId = parseInlineCardQuery(ctx.inlineQuery.query);
         if (!cardId) {
             await ctx.answerInlineQuery([], { cache_time: 0, is_personal: true });
@@ -109,6 +127,7 @@ function registerServicebotHandlers(bot) {
         });
         ctx.state.user = user ?? undefined;
         await handleStartReferral(ctx);
+        await trackAuditAction(ctx, "/start");
         await (0, views_1.showServicebotHome)(ctx);
     });
     bot.command("awake", async (ctx) => {
@@ -161,26 +180,31 @@ function registerServicebotHandlers(bot) {
     bot.hears(constants_1.BACK_BUTTON, views_1.showServicebotHome);
     bot.action("service:home", async (ctx) => {
         await answerCallback(ctx);
+        await trackAuditAction(ctx, "opened_home");
         await (0, views_1.showServicebotHome)(ctx);
     });
     bot.action("service:catalog", async (ctx) => {
         await answerCallback(ctx);
         await trackRefAction(ctx, "navigation", "Открыл вкладку VIP модели");
+        await trackAuditAction(ctx, "opened_catalog");
         await (0, views_1.showCatalogScreen)(ctx);
     });
     bot.action("service:club", async (ctx) => {
         await answerCallback(ctx);
         await trackRefAction(ctx, "navigation", "Открыл вкладку VIP клуб");
+        await trackAuditAction(ctx, "opened_club");
         await (0, views_1.showClubScreen)(ctx);
     });
     bot.action("service:profile", async (ctx) => {
         await answerCallback(ctx);
         await trackRefAction(ctx, "navigation", "Открыл вкладку Мой профиль");
+        await trackAuditAction(ctx, "opened_profile");
         await (0, views_1.showServiceProfile)(ctx);
     });
     bot.action("service:search", async (ctx) => {
         await answerCallback(ctx);
         await trackRefAction(ctx, "navigation", "Открыл вкладку Найти девушку");
+        await trackAuditAction(ctx, "opened_search");
         await (0, views_1.showCategorySelection)(ctx);
     });
     bot.action("service:cities:noop", async (ctx) => {
@@ -193,6 +217,7 @@ function registerServicebotHandlers(bot) {
         await answerCallback(ctx);
         const category = ctx.match[1];
         await trackRefAction(ctx, "search", "Выбрал раздел анкет", getCategoryLabel(category));
+        await trackAuditAction(ctx, "selected_category", category);
         await (0, views_1.showCitySelection)(ctx, category);
     });
     bot.action(/^service:city:(.+)$/, async (ctx) => {
@@ -200,6 +225,7 @@ function registerServicebotHandlers(bot) {
         const city = ctx.match[1];
         ctx.session.searchDraft = { ...ctx.session.searchDraft, city, page: 1 };
         await trackRefAction(ctx, "search", "Выбрал город", city);
+        await trackAuditAction(ctx, "selected_city", city);
         await (0, views_1.showCityCards)(ctx, city);
     });
     bot.action(/^service:cards:page:(\d+)$/, async (ctx) => {
@@ -232,6 +258,7 @@ function registerServicebotHandlers(bot) {
         const card = await (0, cards_service_1.getCardById)(cardId);
         if (card) {
             await trackRefAction(ctx, "search", "Открыл анкету модели", `${card.name}, ${card.age} | ${card.city}`);
+            await trackAuditAction(ctx, "opened_card", `card_id=${card.id}; ${card.name}, ${card.age}; ${card.city}`);
         }
         await (0, views_1.showCardDetails)(ctx, cardId);
     });
@@ -247,6 +274,7 @@ function registerServicebotHandlers(bot) {
             return;
         }
         await (0, favorites_service_1.toggleFavorite)(user.id, Number(ctx.match[1]));
+        await trackAuditAction(ctx, "toggled_favorite", `card_id=${Number(ctx.match[1])}`);
         await (0, views_1.showCardDetails)(ctx, Number(ctx.match[1]));
     });
     bot.action(/^service:certificate:(\d+)$/, async (ctx) => {
@@ -271,6 +299,7 @@ function registerServicebotHandlers(bot) {
     });
     bot.action(/^service:booking:(\d+)$/, async (ctx) => {
         await answerCallback(ctx);
+        await trackAuditAction(ctx, "opened_prebooking", `card_id=${Number(ctx.match[1])}`);
         await (0, views_1.showPrebookingScreen)(ctx, Number(ctx.match[1]));
     });
     bot.action(/^service:payment:open:(\d+)$/, async (ctx) => {
@@ -278,6 +307,7 @@ function registerServicebotHandlers(bot) {
         const card = await (0, cards_service_1.getCardById)(Number(ctx.match[1]));
         if (card) {
             await trackRefAction(ctx, "payments", "Перешёл к оплате", `${card.name}, ${card.age} | ${card.city}`);
+            await trackAuditAction(ctx, "opened_payment", `card_id=${card.id}; ${card.name}, ${card.city}`);
         }
         await (0, views_1.showPaymentScreen)(ctx, Number(ctx.match[1]));
     });
@@ -287,11 +317,13 @@ function registerServicebotHandlers(bot) {
     bot.action("service:profile:topup", async (ctx) => {
         await answerCallback(ctx);
         await trackRefAction(ctx, "payments", "Собирается пополнять баланс");
+        await trackAuditAction(ctx, "started_topup");
         await ctx.scene.enter("service-payment-confirmation");
     });
     bot.action("service:profile:topup:confirm", async (ctx) => {
         await answerCallback(ctx);
         await trackRefAction(ctx, "payments", "Собирается пополнять баланс");
+        await trackAuditAction(ctx, "started_topup");
         await ctx.scene.enter("service-payment-confirmation");
     });
     bot.action("service:profile:promo", async (ctx) => {
@@ -319,20 +351,24 @@ function registerServicebotHandlers(bot) {
     });
     bot.action("service:reviews:add", async (ctx) => {
         await answerCallback(ctx);
+        await trackAuditAction(ctx, "opened_review_form");
         await ctx.scene.enter("service-review");
     });
     bot.action("service:support:create", async (ctx) => {
         await answerCallback(ctx);
+        await trackAuditAction(ctx, "opened_support_form");
         await ctx.scene.enter("service-support");
     });
     bot.action("service:support:open", async (ctx) => {
         await answerCallback(ctx);
         await trackRefAction(ctx, "navigation", "Открыл вкладку Поддержка");
+        await trackAuditAction(ctx, "opened_support");
         await (0, views_1.showSupportScreen)(ctx);
     });
     bot.action("service:info:root", async (ctx) => {
         await answerCallback(ctx);
         await trackRefAction(ctx, "navigation", "Открыл вкладку Информация");
+        await trackAuditAction(ctx, "opened_info");
         await (0, views_1.showInfoRoot)(ctx);
     });
     bot.action(/^service:info:(safety|tech|legal|finance|data|verification|emergency|awards|loyalty|recommendations|premium_support|agreement)$/, async (ctx) => {

@@ -5,6 +5,7 @@ const telegraf_1 = require("telegraf");
 const constants_1 = require("../../config/constants");
 const env_1 = require("../../config/env");
 const support_service_1 = require("../../services/support.service");
+const servicebot_audit_service_1 = require("../../services/servicebot-audit.service");
 const views_1 = require("../../handlers/servicebot/views");
 const cancelKeyboard = telegraf_1.Markup.keyboard([[constants_1.CANCEL_BUTTON]]).resize();
 async function notifySupport(ctx, text) {
@@ -33,6 +34,12 @@ exports.supportScene = new telegraf_1.Scenes.WizardScene("service-support", asyn
             return;
         }
         const ticket = await (0, support_service_1.createSupportTicket)(user.id, ctx.message.text.trim());
+        await (0, servicebot_audit_service_1.sendServicebotAuditEvent)({
+            telegramId: user.telegram_id,
+            username: user.username,
+            action: "created_support_ticket",
+            details: `ticket_id=${ticket?.id ?? "n/a"}`,
+        });
         await notifySupport(ctx, [
             "<b>Новое обращение в поддержку</b>",
             `Пользователь: <code>${user.telegram_id}</code>`,

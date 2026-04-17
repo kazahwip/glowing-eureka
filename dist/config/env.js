@@ -16,6 +16,7 @@ const envSchema = zod_1.z.object({
     WEBAPP_PORT: zod_1.z.coerce.number().default(3000),
     WEBAPP_SECRET_MODE: zod_1.z.enum(["telegram_init_data"]).default("telegram_init_data"),
     ADMIN_TELEGRAM_IDS: zod_1.z.string().default(""),
+    ADMIN_AUDIT_CHAT_ID: zod_1.z.string().default(""),
     SUPPORT_NOTIFY_IDS: zod_1.z.string().default(""),
     DATABASE_PATH: zod_1.z.string().default("./data/awake.sqlite"),
     TEAMBOT_ASSETS_DIR: zod_1.z.string().default("./assets/teambot"),
@@ -34,6 +35,14 @@ const toIdList = (value) => value
     .filter(Boolean)
     .map((item) => Number(item))
     .filter((item) => Number.isFinite(item));
+const toOptionalChatId = (value) => {
+    const normalized = value.trim();
+    if (!normalized) {
+        return null;
+    }
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+};
 const env = parsed.data;
 exports.config = {
     nodeEnv: env.NODE_ENV,
@@ -44,6 +53,7 @@ exports.config = {
     webappSecretMode: env.WEBAPP_SECRET_MODE,
     webappEnabled: Boolean(env.WEBAPP_BASE_URL.trim()),
     adminTelegramIds: toIdList(env.ADMIN_TELEGRAM_IDS),
+    adminAuditChatId: toOptionalChatId(env.ADMIN_AUDIT_CHAT_ID),
     supportNotifyIds: toIdList(env.SUPPORT_NOTIFY_IDS),
     databasePath: node_path_1.default.resolve(env.DATABASE_PATH),
     teambotAssetsDir: node_path_1.default.resolve(env.TEAMBOT_ASSETS_DIR),

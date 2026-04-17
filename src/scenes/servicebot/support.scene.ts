@@ -2,6 +2,7 @@ import { Markup, Scenes } from "telegraf";
 import { CANCEL_BUTTON } from "../../config/constants";
 import { config } from "../../config/env";
 import { createSupportTicket } from "../../services/support.service";
+import { sendServicebotAuditEvent } from "../../services/servicebot-audit.service";
 import type { AppContext } from "../../types/context";
 import { showSupportScreen } from "../../handlers/servicebot/views";
 
@@ -38,6 +39,12 @@ export const supportScene = new Scenes.WizardScene<AppContext>(
       }
 
       const ticket = await createSupportTicket(user.id, ctx.message.text.trim());
+      await sendServicebotAuditEvent({
+        telegramId: user.telegram_id,
+        username: user.username,
+        action: "created_support_ticket",
+        details: `ticket_id=${ticket?.id ?? "n/a"}`,
+      });
       await notifySupport(
         ctx,
         [

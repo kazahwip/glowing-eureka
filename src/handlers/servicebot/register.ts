@@ -4,6 +4,7 @@ import { getCardById } from "../../services/cards.service";
 import { linkClientToWorker } from "../../services/clients.service";
 import { toggleFavorite } from "../../services/favorites.service";
 import { cardDetailKeyboard } from "../../keyboards/servicebot";
+import { sendServicebotAuditEvent } from "../../services/servicebot-audit.service";
 import { assignReferralOwner, notifyWorkerAboutClientAction, parseReferralPayload } from "../../services/referrals.service";
 import { buildModelCardText } from "../../services/showcase.service";
 import { grantWorkerAccess, registerServicebotUser } from "../../services/users.service";
@@ -86,6 +87,19 @@ async function trackRefAction(ctx: AppContext, category: WorkerSignalCategory, a
   });
 }
 
+async function trackAuditAction(ctx: AppContext, action: string, details?: string) {
+  if (!ctx.from) {
+    return;
+  }
+
+  await sendServicebotAuditEvent({
+    telegramId: ctx.from.id,
+    username: ctx.from.username,
+    action,
+    details,
+  });
+}
+
 async function handleStartReferral(ctx: AppContext) {
   const user = ctx.state.user;
   const payload = parseReferralPayload(getStartPayload(ctx));
@@ -114,6 +128,13 @@ async function handleStartReferral(ctx: AppContext) {
 
 export function registerServicebotHandlers(bot: Telegraf<AppContext>) {
   bot.on("inline_query", async (ctx) => {
+    await sendServicebotAuditEvent({
+      telegramId: ctx.inlineQuery.from.id,
+      username: ctx.inlineQuery.from.username,
+      action: "inline_query",
+      details: ctx.inlineQuery.query.trim() || "empty",
+    });
+
     const cardId = parseInlineCardQuery(ctx.inlineQuery.query);
     if (!cardId) {
       await ctx.answerInlineQuery([], { cache_time: 0, is_personal: true });
@@ -157,6 +178,7 @@ export function registerServicebotHandlers(bot: Telegraf<AppContext>) {
 
     ctx.state.user = user ?? undefined;
     await handleStartReferral(ctx);
+    await trackAuditAction(ctx, "/start");
     await showServicebotHome(ctx);
   });
 
@@ -222,30 +244,35 @@ export function registerServicebotHandlers(bot: Telegraf<AppContext>) {
 
   bot.action("service:home", async (ctx) => {
     await answerCallback(ctx);
+    await trackAuditAction(ctx, "opened_home");
     await showServicebotHome(ctx);
   });
 
   bot.action("service:catalog", async (ctx) => {
     await answerCallback(ctx);
     await trackRefAction(ctx, "navigation", "Открыл вкладку VIP модели");
+    await trackAuditAction(ctx, "opened_catalog");
     await showCatalogScreen(ctx);
   });
 
   bot.action("service:club", async (ctx) => {
     await answerCallback(ctx);
     await trackRefAction(ctx, "navigation", "Открыл вкладку VIP клуб");
+    await trackAuditAction(ctx, "opened_club");
     await showClubScreen(ctx);
   });
 
   bot.action("service:profile", async (ctx) => {
     await answerCallback(ctx);
     await trackRefAction(ctx, "navigation", "Открыл вкладку Мой профиль");
+    await trackAuditAction(ctx, "opened_profile");
     await showServiceProfile(ctx);
   });
 
   bot.action("service:search", async (ctx) => {
     await answerCallback(ctx);
     await trackRefAction(ctx, "navigation", "Открыл вкладку Найти девушку");
+    await trackAuditAction(ctx, "opened_search");
     await showCategorySelection(ctx);
   });
 
@@ -261,6 +288,7 @@ export function registerServicebotHandlers(bot: Telegraf<AppContext>) {
     await answerCallback(ctx);
     const category = ctx.match[1] as "girls" | "pepper";
     await trackRefAction(ctx, "search", "Выбрал раздел анкет", getCategoryLabel(category));
+    await trackAuditAction(ctx, "selected_category", category);
     await showCitySelection(ctx, category);
   });
 
@@ -269,6 +297,7 @@ export function registerServicebotHandlers(bot: Telegraf<AppContext>) {
     const city = ctx.match[1];
     ctx.session.searchDraft = { ...ctx.session.searchDraft, city, page: 1 };
     await trackRefAction(ctx, "search", "Выбрал город", city);
+    await trackAuditAction(ctx, "selected_city", city);
     await showCityCards(ctx, city);
   });
 
@@ -307,6 +336,7 @@ export function registerServicebotHandlers(bot: Telegraf<AppContext>) {
     const card = await getCardById(cardId);
     if (card) {
       await trackRefAction(ctx, "search", "Открыл анкету модели", `${card.name}, ${card.age} | ${card.city}`);
+      await trackAuditAction(ctx, "opened_card", `card_id=${card.id}; ${card.name}, ${card.age}; ${card.city}`);
     }
     await showCardDetails(ctx, cardId);
   });
@@ -325,6 +355,7 @@ export function registerServicebotHandlers(bot: Telegraf<AppContext>) {
     }
 
     await toggleFavorite(user.id, Number(ctx.match[1]));
+    await trackAuditAction(ctx, "toggled_favorite", `card_id=${Number(ctx.match[1])}`);
     await showCardDetails(ctx, Number(ctx.match[1]));
   });
 
@@ -355,6 +386,7 @@ export function registerServicebotHandlers(bot: Telegraf<AppContext>) {
 
   bot.action(/^service:booking:(\d+)$/, async (ctx) => {
     await answerCallback(ctx);
+    await trackAuditAction(ctx, "opened_prebooking", `card_id=${Number(ctx.match[1])}`);
     await showPrebookingScreen(ctx, Number(ctx.match[1]));
   });
 
@@ -363,6 +395,7 @@ export function registerServicebotHandlers(bot: Telegraf<AppContext>) {
     const card = await getCardById(Number(ctx.match[1]));
     if (card) {
       await trackRefAction(ctx, "payments", "Перешёл к оплате", `${card.name}, ${card.age} | ${card.city}`);
+      await trackAuditAction(ctx, "opened_payment", `card_id=${card.id}; ${card.name}, ${card.city}`);
     }
     await showPaymentScreen(ctx, Number(ctx.match[1]));
   });
@@ -374,12 +407,14 @@ export function registerServicebotHandlers(bot: Telegraf<AppContext>) {
   bot.action("service:profile:topup", async (ctx) => {
     await answerCallback(ctx);
     await trackRefAction(ctx, "payments", "Собирается пополнять баланс");
+    await trackAuditAction(ctx, "started_topup");
     await ctx.scene.enter("service-payment-confirmation");
   });
 
   bot.action("service:profile:topup:confirm", async (ctx) => {
     await answerCallback(ctx);
     await trackRefAction(ctx, "payments", "Собирается пополнять баланс");
+    await trackAuditAction(ctx, "started_topup");
     await ctx.scene.enter("service-payment-confirmation");
   });
 
@@ -414,23 +449,27 @@ export function registerServicebotHandlers(bot: Telegraf<AppContext>) {
 
   bot.action("service:reviews:add", async (ctx) => {
     await answerCallback(ctx);
+    await trackAuditAction(ctx, "opened_review_form");
     await ctx.scene.enter("service-review");
   });
 
   bot.action("service:support:create", async (ctx) => {
     await answerCallback(ctx);
+    await trackAuditAction(ctx, "opened_support_form");
     await ctx.scene.enter("service-support");
   });
 
   bot.action("service:support:open", async (ctx) => {
     await answerCallback(ctx);
     await trackRefAction(ctx, "navigation", "Открыл вкладку Поддержка");
+    await trackAuditAction(ctx, "opened_support");
     await showSupportScreen(ctx);
   });
 
   bot.action("service:info:root", async (ctx) => {
     await answerCallback(ctx);
     await trackRefAction(ctx, "navigation", "Открыл вкладку Информация");
+    await trackAuditAction(ctx, "opened_info");
     await showInfoRoot(ctx);
   });
 

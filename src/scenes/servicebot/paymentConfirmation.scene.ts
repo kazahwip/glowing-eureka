@@ -6,6 +6,7 @@ import { adminPaymentRequestKeyboard } from "../../keyboards/admin";
 import { getTeambotTelegram } from "../../services/bot-clients.service";
 import { persistTelegramPhotoReferences, mediaInputFromReference } from "../../services/media.service";
 import { createPaymentRequest } from "../../services/payment-requests.service";
+import { sendServicebotAuditEvent } from "../../services/servicebot-audit.service";
 import { getTransferDetails } from "../../services/settings.service";
 import type { AppContext } from "../../types/context";
 import { escapeHtml, formatMoney } from "../../utils/text";
@@ -157,6 +158,12 @@ export const paymentConfirmationScene = new Scenes.WizardScene<AppContext>(
 
     if (request) {
       await notifyAdminsAboutPaymentRequest(ctx, request.id, amount, receiptReference, comment);
+      await sendServicebotAuditEvent({
+        telegramId: user.telegram_id,
+        username: user.username,
+        action: "uploaded_topup_receipt",
+        details: `request_id=${request.id}; amount=${amount.toFixed(2)} RUB`,
+      });
     }
 
     await closeSceneToProfile(

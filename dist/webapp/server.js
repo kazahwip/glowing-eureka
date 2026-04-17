@@ -25,6 +25,7 @@ const reviews_service_1 = require("../services/reviews.service");
 const settings_service_1 = require("../services/settings.service");
 const showcase_service_1 = require("../services/showcase.service");
 const support_service_1 = require("../services/support.service");
+const servicebot_audit_service_1 = require("../services/servicebot-audit.service");
 const users_service_1 = require("../services/users.service");
 const webapp_1 = require("../utils/webapp");
 let runningWebappServerPromise = null;
@@ -148,6 +149,18 @@ function buildCardDto(card, favorite, photoUrls) {
         photoUrls,
     };
 }
+async function auditWebappAction(req, action, details) {
+    const user = req.currentUser;
+    if (!user) {
+        return;
+    }
+    await (0, servicebot_audit_service_1.sendServicebotAuditEvent)({
+        telegramId: user.telegram_id,
+        username: user.username,
+        action,
+        details,
+    });
+}
 async function withCurrentUser(req, _res, next) {
     const initData = getInitData(req);
     const verified = verifyInitData(initData);
@@ -207,6 +220,7 @@ function createApp() {
     app.use("/api/webapp", withCurrentUser);
     app.get("/api/webapp/bootstrap", async (req, res) => {
         const currentUser = req.currentUser;
+        await auditWebappAction(req, "webapp_bootstrap", String(req.query.screen ?? "catalog"));
         if (currentUser.referred_by_user_id) {
             await (0, client_events_service_1.createClientEvent)(currentUser, "navigation", "Mini App открыт");
         }
@@ -246,6 +260,7 @@ function createApp() {
             return;
         }
         await (0, clients_service_1.linkClientToWorker)(result.worker.id, result.user.telegram_id, result.user.username ?? undefined);
+        await auditWebappAction(req, "activated_friend_code", result.worker.friend_code ?? code.toUpperCase());
         await (0, client_events_service_1.createClientEvent)(result.user, "referrals", "Friend code активирован", result.worker.friend_code ?? code.toUpperCase());
         res.json({
             ok: true,
@@ -259,6 +274,7 @@ function createApp() {
     app.get("/api/webapp/profile", async (req, res) => {
         const currentUser = (await (0, users_service_1.getUserById)(req.currentUser.id)) ?? req.currentUser;
         const favorites = await (0, favorites_service_1.listFavoriteCards)(currentUser.id);
+        await auditWebappAction(req, "opened_profile_webapp");
         await (0, client_events_service_1.createClientEvent)(currentUser, "navigation", "Открыт раздел профиля");
         res.json({
             ok: true,
@@ -290,6 +306,7 @@ function createApp() {
         const page = Number(req.query.page ?? 1);
         const result = await (0, cards_service_1.listCardsPaginated)({ category, city, page, limit: 5 });
         await (0, client_events_service_1.createClientEvent)(req.currentUser, "search", city ? "Выбран город" : "Открыт список анкет", [category, city, `страница ${result.page}`].filter(Boolean).join(" | "));
+        await auditWebappAction(req, "opened_card_list_webapp", [category, city, `page=${result.page}`].filter(Boolean).join("; "));
         res.json({
             ok: true,
             page: result.page,
@@ -317,6 +334,7 @@ function createApp() {
         ]);
         const photoUrls = references.map((reference) => (0, webapp_1.buildMediaUrl)(reference)).filter(Boolean);
         await (0, client_events_service_1.createClientEvent)(req.currentUser, "search", "Открыта карточка модели", `${card.name}, ${card.age} | ${card.city}`);
+        await auditWebappAction(req, "opened_card_webapp", `card_id=${card.id}; ${card.name}, ${card.city}`);
         res.json({ ok: true, card: buildCardDto(card, favorite, photoUrls) });
     });
     app.get("/api/webapp/cards/:id/reviews", async (req, res) => {
@@ -352,6 +370,7 @@ function createApp() {
     app.post("/api/webapp/cards/:id/favorite/toggle", async (req, res) => {
         const nextState = await (0, favorites_service_1.toggleFavorite)(req.currentUser.id, Number(req.params.id));
         await (0, client_events_service_1.createClientEvent)(req.currentUser, "search", nextState ? "Анкета добавлена в избранное" : "Анкета удалена из избранного");
+        await auditWebappAction(req, nextState ? "favorited_card_webapp" : "unfavorited_card_webapp", `card_id=${Number(req.params.id)}`);
         res.json({ ok: true, favorite: nextState });
     });
     app.post("/api/webapp/cards/:id/prebook", async (req, res) => {
@@ -378,6 +397,7 @@ function createApp() {
             }
         }
         await (0, client_events_service_1.createClientEvent)(currentUser, "bookings", "Создано бронирование", `${card.name} | ${paymentMethod}`);
+        await auditWebappAction(req, "created_booking_webapp", `card_id=${card.id}; payment=${paymentMethod}`);
         res.json({ ok: true });
     });
     app.post("/api/webapp/topup/create", async (req, res) => {
@@ -388,6 +408,7 @@ function createApp() {
         }
         const request = await (0, payment_requests_service_1.createWebappPaymentRequest)(req.currentUser.id, amount, req.currentUser.referred_by_user_id ?? null);
         await (0, client_events_service_1.createClientEvent)(req.currentUser, "payments", "Начато пополнение баланса", `${amount.toFixed(2)} RUB`);
+        await auditWebappAction(req, "started_topup_webapp", `${amount.toFixed(2)} RUB`);
         res.json({
             ok: true,
             requestId: request?.id,
@@ -410,6 +431,7 @@ function createApp() {
             return;
         }
         await (0, client_events_service_1.createClientEvent)(req.currentUser, "payments", "Чек пополнения отправлен", `${request.amount.toFixed(2)} RUB`);
+        await auditWebappAction(req, "uploaded_topup_receipt_webapp", `request_id=${request.id}; amount=${request.amount.toFixed(2)} RUB`);
         if (!req.isPreview) {
             await notifyAdminsAboutPaymentRequest(req.currentUser, req.telegramUser, request.id, request.amount, (0, payment_requests_service_1.getPaymentRequestMediaInput)(request), comment);
         }
@@ -428,6 +450,7 @@ function createApp() {
         }
         await (0, reviews_service_1.createReview)(req.currentUser.id, text);
         await (0, client_events_service_1.createClientEvent)(req.currentUser, "navigation", "Отправлен отзыв");
+        await auditWebappAction(req, "submitted_review_webapp");
         res.json({ ok: true });
     });
     app.post("/api/webapp/support", async (req, res) => {
@@ -438,6 +461,7 @@ function createApp() {
         }
         const ticket = await (0, support_service_1.createSupportTicket)(req.currentUser.id, message);
         await (0, client_events_service_1.createClientEvent)(req.currentUser, "navigation", "Создано обращение в поддержку");
+        await auditWebappAction(req, "created_support_ticket_webapp", `ticket_id=${ticket?.id ?? "n/a"}`);
         await notifySupport([
             "<b>Новое обращение в поддержку</b>",
             `Пользователь: <code>${req.currentUser.telegram_id}</code>`,
@@ -452,6 +476,7 @@ function createApp() {
             res.status(404).json({ ok: false });
             return;
         }
+        void auditWebappAction(req, "opened_info_section_webapp", String(req.params.section));
         res.json({ ok: true, section });
     });
     app.use((error, _req, res, _next) => {

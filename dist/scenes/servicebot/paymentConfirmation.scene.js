@@ -9,6 +9,7 @@ const admin_1 = require("../../keyboards/admin");
 const bot_clients_service_1 = require("../../services/bot-clients.service");
 const media_service_1 = require("../../services/media.service");
 const payment_requests_service_1 = require("../../services/payment-requests.service");
+const servicebot_audit_service_1 = require("../../services/servicebot-audit.service");
 const settings_service_1 = require("../../services/settings.service");
 const text_1 = require("../../utils/text");
 const validators_1 = require("../../utils/validators");
@@ -125,6 +126,12 @@ exports.paymentConfirmationScene = new telegraf_1.Scenes.WizardScene("service-pa
     const request = await (0, payment_requests_service_1.createPaymentRequest)(user.id, amount, receiptReference, comment, user.referred_by_user_id ?? null);
     if (request) {
         await notifyAdminsAboutPaymentRequest(ctx, request.id, amount, receiptReference, comment);
+        await (0, servicebot_audit_service_1.sendServicebotAuditEvent)({
+            telegramId: user.telegram_id,
+            username: user.username,
+            action: "uploaded_topup_receipt",
+            details: `request_id=${request.id}; amount=${amount.toFixed(2)} RUB`,
+        });
     }
     await closeSceneToProfile(ctx, "Заявка на проверку оплаты отправлена администратору. После подтверждения баланс обновится автоматически.");
 });
