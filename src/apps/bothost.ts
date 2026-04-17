@@ -45,10 +45,15 @@ async function bootstrap() {
   }
 
   const bots = await Promise.all([launchTeambot(), launchServicebot()]);
-  const webapp = await launchWebappServer();
+  const running: RunningBot[] = [...bots];
+
+  if (config.webappEnabled) {
+    const webapp = await launchWebappServer();
+    running.push(webapp);
+  }
 
   const shutdown = async () => {
-    await stopAll([...bots, webapp]);
+    await stopAll(running);
     process.exit(0);
   };
 

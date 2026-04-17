@@ -1,4 +1,7 @@
-import type { Telegraf } from "telegraf";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { Input, type Telegraf } from "telegraf";
+import { config } from "../../config/env";
 import { adminHomeKeyboard, adminRoleKeyboard } from "../../keyboards/admin";
 import { curatorRequestDecisionKeyboard, TEAM_WORK_BUTTONS, teambotBackKeyboard } from "../../keyboards/teambot";
 import { BACK_BUTTON, TEAMBOT_MAIN_MENU } from "../../config/constants";
@@ -711,6 +714,26 @@ export function registerTeambotHandlers(bot: Telegraf<AppContext>) {
     }
 
     await showAdminFriendCodeStats(ctx);
+  });
+
+  bot.action("admin:db:export", async (ctx) => {
+    await answerCallback(ctx);
+    if (!isAdmin(ctx)) {
+      return;
+    }
+
+    try {
+      await fs.access(config.databasePath);
+      await ctx.replyWithDocument(
+        Input.fromLocalFile(config.databasePath, path.basename(config.databasePath)),
+        {
+          caption: "🗄 Резервная копия базы данных AWAKE BOT",
+        },
+      );
+      await logAdminAction(ctx.state.user.id, "export_database", config.databasePath);
+    } catch (error) {
+      await ctx.reply(`Не удалось выгрузить БД: ${String(error)}`);
+    }
   });
 
   bot.action("admin:cards:search", async (ctx) => {

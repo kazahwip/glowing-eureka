@@ -11,6 +11,7 @@ export function adminHomeKeyboard() {
     [Markup.button.callback("💳 Реквизиты", "admin:transfer")],
     [Markup.button.callback("📈 Статистика проекта", "admin:project-stats")],
     [Markup.button.callback("💸 Добавить профит", "admin:add-profit")],
+    [Markup.button.callback("🗄 Выгрузить БД", "admin:db:export")],
     [Markup.button.callback("📣 Рассылка", "admin:broadcast")],
     [Markup.button.callback("🗂 Логи", "admin:logs")],
     [Markup.button.callback("✖️ Закрыть", "admin:close")],
@@ -79,7 +80,6 @@ export function adminOwnerCardsKeyboard(cards: Card[], ownerUserId: number) {
   ]);
 
   rows.push([Markup.button.callback("⬅️ К профилю", `admin:user:${ownerUserId}:view`)]);
-
   return Markup.inlineKeyboard(rows);
 }
 

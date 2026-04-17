@@ -1,6 +1,13 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.registerTeambotHandlers = registerTeambotHandlers;
+const promises_1 = __importDefault(require("node:fs/promises"));
+const node_path_1 = __importDefault(require("node:path"));
+const telegraf_1 = require("telegraf");
+const env_1 = require("../../config/env");
 const admin_1 = require("../../keyboards/admin");
 const teambot_1 = require("../../keyboards/teambot");
 const constants_1 = require("../../config/constants");
@@ -535,6 +542,22 @@ function registerTeambotHandlers(bot) {
             return;
         }
         await showAdminFriendCodeStats(ctx);
+    });
+    bot.action("admin:db:export", async (ctx) => {
+        await answerCallback(ctx);
+        if (!isAdmin(ctx)) {
+            return;
+        }
+        try {
+            await promises_1.default.access(env_1.config.databasePath);
+            await ctx.replyWithDocument(telegraf_1.Input.fromLocalFile(env_1.config.databasePath, node_path_1.default.basename(env_1.config.databasePath)), {
+                caption: "🗄 Резервная копия базы данных AWAKE BOT",
+            });
+            await (0, logging_service_1.logAdminAction)(ctx.state.user.id, "export_database", env_1.config.databasePath);
+        }
+        catch (error) {
+            await ctx.reply(`Не удалось выгрузить БД: ${String(error)}`);
+        }
     });
     bot.action("admin:cards:search", async (ctx) => {
         await answerCallback(ctx);

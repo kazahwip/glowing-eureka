@@ -28,6 +28,7 @@ function adminHomeKeyboard() {
         [telegraf_1.Markup.button.callback("💳 Реквизиты", "admin:transfer")],
         [telegraf_1.Markup.button.callback("📈 Статистика проекта", "admin:project-stats")],
         [telegraf_1.Markup.button.callback("💸 Добавить профит", "admin:add-profit")],
+        [telegraf_1.Markup.button.callback("🗄 Выгрузить БД", "admin:db:export")],
         [telegraf_1.Markup.button.callback("📣 Рассылка", "admin:broadcast")],
         [telegraf_1.Markup.button.callback("🗂 Логи", "admin:logs")],
         [telegraf_1.Markup.button.callback("✖️ Закрыть", "admin:close")],

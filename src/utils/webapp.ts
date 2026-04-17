@@ -1,13 +1,21 @@
 import { config } from "../config/env";
 
+export function isWebappEnabled() {
+  return config.webappEnabled;
+}
+
 export function buildWebappUrl(screen: string) {
+  if (!config.webappEnabled) {
+    return null;
+  }
+
   const url = new URL(config.webappBaseUrl);
   url.searchParams.set("screen", screen);
   return url.toString();
 }
 
 export function buildMediaUrl(reference: string) {
-  if (!reference.startsWith("local:")) {
+  if (!config.webappEnabled || !reference.startsWith("local:")) {
     return null;
   }
 

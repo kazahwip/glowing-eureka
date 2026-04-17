@@ -33,9 +33,13 @@ async function bootstrap() {
         throw new Error("Для общего запуска на Bothost нужны оба токена: TEAMBOT_TOKEN и SERVICEBOT_TOKEN.");
     }
     const bots = await Promise.all([(0, teambot_1.launchTeambot)(), (0, servicebot_1.launchServicebot)()]);
-    const webapp = await (0, server_1.launchWebappServer)();
+    const running = [...bots];
+    if (env_1.config.webappEnabled) {
+        const webapp = await (0, server_1.launchWebappServer)();
+        running.push(webapp);
+    }
     const shutdown = async () => {
-        await stopAll([...bots, webapp]);
+        await stopAll(running);
         process.exit(0);
     };
     process.once("SIGINT", shutdown);
