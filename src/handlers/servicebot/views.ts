@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { CARD_CATEGORIES, HOME_BUTTON, INFO_SECTIONS } from "../../config/constants";
+import { CARD_CATEGORIES, CASH_SECURITY_DEPOSIT_AMOUNT, HOME_BUTTON, INFO_SECTIONS } from "../../config/constants";
 import {
   agreementKeyboard,
   awardsInfoKeyboard,
@@ -27,7 +27,7 @@ import {
   workerBackInlineKeyboard,
   workerPanelKeyboard,
 } from "../../keyboards/servicebot";
-import { countCompletedBookings, createBooking, createPaidBooking } from "../../services/bookings.service";
+import { createCashDepositBooking, createPaidBooking } from "../../services/bookings.service";
 import { getTeambotTelegram } from "../../services/bot-clients.service";
 import { getCardById, listCardsByCity, listRecentCards } from "../../services/cards.service";
 import { getWorkerClientsStats, linkClientToWorker, listWorkerClients, searchWorkerClients } from "../../services/clients.service";
@@ -454,8 +454,9 @@ export async function showPrebookingScreen(ctx: AppContext, cardId: number) {
       `Модель: ${escapeHtml(card.name)}, ${card.age}`,
       `Город: ${escapeHtml(card.city)}`,
       "",
-      "🎁 Для фиксации предзаказа используется оплата из баланса бота.",
-      `💳 К оплате за слот 1 час: ${formatMoney(card.price_1h)}`,
+      "🎁 Вы можете оплатить слот с баланса бота или выбрать наличные.",
+      `💳 С баланса бота за слот 1 час: ${formatMoney(card.price_1h)}`,
+      `💵 Для наличных нужен депозит: ${formatMoney(CASH_SECURITY_DEPOSIT_AMOUNT)}`,
       "",
     ].join("\n"),
     {
@@ -478,7 +479,6 @@ export async function showPaymentScreen(ctx: AppContext, cardId: number) {
     return;
   }
 
-  const cashAvailable = (await countCompletedBookings(user.id)) > 0;
   await ctx.reply(
     [
       "<b>💘 Выберите способ оплаты</b>",
@@ -488,9 +488,7 @@ export async function showPaymentScreen(ctx: AppContext, cardId: number) {
       `Баланс бота: ${formatMoney(user.balance)}`,
       "",
       "💳 Баланс бота доступен сразу после подтвержденного пополнения.",
-      cashAvailable
-        ? "💵 Наличные уже доступны, потому что у вас есть успешная встреча."
-        : "💵 Наличные откроются после 1 успешной встречи.",
+      `💵 Наличные доступны сейчас, но для фиксации бронирования нужен депозит ${formatMoney(CASH_SECURITY_DEPOSIT_AMOUNT)} с баланса бота.`,
     ].join("\n"),
     {
       parse_mode: "HTML",
@@ -509,17 +507,6 @@ export async function handlePaymentChoice(ctx: AppContext, cardId: number, payme
   const card = await getCardById(cardId);
   if (!card) {
     await ctx.reply("Анкета не найдена.");
-    return;
-  }
-
-  const completedBookings = await countCompletedBookings(user.id);
-  if (paymentMethod === "cash" && completedBookings < 1) {
-    await ctx.answerCbQuery().catch(() => undefined);
-    await ctx.reply("💔 Этот способ оплаты будет доступен после 1 успешной встречи", {
-      reply_markup: {
-        inline_keyboard: [[{ text: "⬅️ Назад к оплате", callback_data: `service:payment:open:${cardId}` }]],
-      },
-    });
     return;
   }
 
@@ -572,15 +559,45 @@ export async function handlePaymentChoice(ctx: AppContext, cardId: number, payme
     return;
   }
 
-  await createBooking(user.id, cardId, "Предзаказ / наличные", paymentMethod);
+  const result = await createCashDepositBooking(user.id, cardId, "Предзаказ / наличные + депозит", CASH_SECURITY_DEPOSIT_AMOUNT);
+  if (result.status === "insufficient_balance") {
+    await ctx.answerCbQuery("Недостаточно средств для депозита").catch(() => undefined);
+    await ctx.reply(
+      [
+        "<b>💵 Наличная оплата доступна после депозита</b>",
+        "",
+        `Для фиксации бронирования нужно пополнить депозит: ${formatMoney(CASH_SECURITY_DEPOSIT_AMOUNT)}`,
+        `Сейчас на балансе: ${formatMoney(user.balance)}`,
+        "",
+        "Пополните баланс, нажмите «Я перевёл» и отправьте чек. После подтверждения администратора вернитесь к бронированию.",
+      ].join("\n"),
+      {
+        parse_mode: "HTML",
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: `💳 Пополнить депозит ${formatMoney(CASH_SECURITY_DEPOSIT_AMOUNT)}`, callback_data: "service:profile:topup:deposit" }],
+            [{ text: "⬅️ Назад к оплате", callback_data: `service:payment:open:${cardId}` }],
+          ],
+        },
+      },
+    );
+    return;
+  }
+
+  if (result.status === "missing_user") {
+    await ctx.reply("Сначала выполните /start.");
+    return;
+  }
+
   await notifyOwnerAboutBooking(ctx, card, paymentMethod);
-  await ctx.answerCbQuery("✅ Предзаказ оформлен").catch(() => undefined);
+  await ctx.answerCbQuery("✅ Депозит списан").catch(() => undefined);
   await ctx.reply(
     [
       "<b>✅ Предзаказ оформлен</b>",
       `Модель: ${escapeHtml(card.name)}`,
       "Оплата: наличные",
-      "Слот зафиксирован и отправлен воркеру на подтверждение.",
+      `Депозит списан с баланса: ${formatMoney(CASH_SECURITY_DEPOSIT_AMOUNT)}`,
+      "Слот зафиксирован и отправлен представителю на подтверждение.",
     ].join("\n"),
     {
       parse_mode: "HTML",

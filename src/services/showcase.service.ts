@@ -1,3 +1,4 @@
+import { CASH_SECURITY_DEPOSIT_AMOUNT } from "../config/constants";
 import { getDb } from "../db/client";
 import type { Card, CardWithPhotos } from "../types/entities";
 import { escapeHtml } from "../utils/text";
@@ -423,11 +424,11 @@ export function buildPrebookingText() {
   ].join("\n");
 }
 
-export function buildPaymentText(cashAvailable: boolean) {
+export function buildPaymentText(_cashAvailable: boolean) {
   return [
     "<b>💘 Выберите способ оплаты:</b>",
     "",
-    cashAvailable ? "💵 Наличные доступны для повторного оформления." : "💵 Наличные откроются после 1 успешной встречи.",
+    `💵 Наличные доступны при депозите ${CASH_SECURITY_DEPOSIT_AMOUNT} RUB с баланса бота.`,
     "💳 Баланс бота доступен сейчас.",
   ].join("\n");
 }

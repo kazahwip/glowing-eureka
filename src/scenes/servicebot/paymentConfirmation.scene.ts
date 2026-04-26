@@ -66,9 +66,33 @@ async function notifyAdminsAboutPaymentRequest(
   }
 }
 
+async function showTransferDetails(ctx: AppContext, amount: number) {
+  const transferDetails = await getTransferDetails();
+  await ctx.reply(
+    [
+      "<b>💳 Реквизиты для перевода</b>",
+      "",
+      `Сумма: ${formatMoney(amount)}`,
+      escapeHtml(transferDetails),
+      "",
+      "После перевода нажмите «Я перевел».",
+    ].join("\n"),
+    {
+      parse_mode: "HTML",
+      ...paidKeyboard,
+    },
+  );
+}
+
 export const paymentConfirmationScene = new Scenes.WizardScene<AppContext>(
   "service-payment-confirmation",
   async (ctx) => {
+    const presetAmount = ctx.session.paymentRequestDraft?.amount;
+    if (presetAmount) {
+      await showTransferDetails(ctx, presetAmount);
+      return ctx.wizard.selectStep(2);
+    }
+
     ctx.session.paymentRequestDraft = {};
     await ctx.reply("Введите сумму пополнения одним сообщением.", cancelKeyboard);
     return ctx.wizard.next();
@@ -91,21 +115,7 @@ export const paymentConfirmationScene = new Scenes.WizardScene<AppContext>(
     }
 
     ctx.session.paymentRequestDraft = { amount };
-    const transferDetails = await getTransferDetails();
-    await ctx.reply(
-      [
-        "<b>💳 Реквизиты для перевода</b>",
-        "",
-        `Сумма: ${formatMoney(amount)}`,
-        escapeHtml(transferDetails),
-        "",
-        "После перевода нажмите «Я перевел».",
-      ].join("\n"),
-      {
-        parse_mode: "HTML",
-        ...paidKeyboard,
-      },
-    );
+    await showTransferDetails(ctx, amount);
     return ctx.wizard.next();
   },
   async (ctx) => {

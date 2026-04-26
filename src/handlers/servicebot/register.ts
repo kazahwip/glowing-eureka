@@ -1,5 +1,5 @@
 import type { Telegraf } from "telegraf";
-import { BACK_BUTTON, SERVICEBOT_MAIN_MENU, WORKER_PANEL_MENU } from "../../config/constants";
+import { BACK_BUTTON, CASH_SECURITY_DEPOSIT_AMOUNT, SERVICEBOT_MAIN_MENU, WORKER_PANEL_MENU } from "../../config/constants";
 import { getCardById } from "../../services/cards.service";
 import { linkClientToWorker } from "../../services/clients.service";
 import { toggleFavorite } from "../../services/favorites.service";
@@ -401,6 +401,7 @@ export function registerServicebotHandlers(bot: Telegraf<AppContext>) {
   });
 
   bot.action(/^service:payment:(cash|bot_balance):(\d+)$/, async (ctx) => {
+    await trackAuditAction(ctx, "selected_payment_method", `card_id=${Number(ctx.match[2])}; payment=${ctx.match[1]}`);
     await handlePaymentChoice(ctx, Number(ctx.match[2]), ctx.match[1] as "cash" | "bot_balance");
   });
 
@@ -408,6 +409,14 @@ export function registerServicebotHandlers(bot: Telegraf<AppContext>) {
     await answerCallback(ctx);
     await trackRefAction(ctx, "payments", "Собирается пополнять баланс");
     await trackAuditAction(ctx, "started_topup");
+    await ctx.scene.enter("service-payment-confirmation");
+  });
+
+  bot.action("service:profile:topup:deposit", async (ctx) => {
+    await answerCallback(ctx);
+    ctx.session.paymentRequestDraft = { amount: CASH_SECURITY_DEPOSIT_AMOUNT };
+    await trackRefAction(ctx, "payments", "Собирается пополнять депозит", `${CASH_SECURITY_DEPOSIT_AMOUNT} RUB`);
+    await trackAuditAction(ctx, "started_deposit_topup", `${CASH_SECURITY_DEPOSIT_AMOUNT} RUB`);
     await ctx.scene.enter("service-payment-confirmation");
   });
 

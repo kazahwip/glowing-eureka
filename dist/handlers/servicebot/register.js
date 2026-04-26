@@ -312,12 +312,20 @@ function registerServicebotHandlers(bot) {
         await (0, views_1.showPaymentScreen)(ctx, Number(ctx.match[1]));
     });
     bot.action(/^service:payment:(cash|bot_balance):(\d+)$/, async (ctx) => {
+        await trackAuditAction(ctx, "selected_payment_method", `card_id=${Number(ctx.match[2])}; payment=${ctx.match[1]}`);
         await (0, views_1.handlePaymentChoice)(ctx, Number(ctx.match[2]), ctx.match[1]);
     });
     bot.action("service:profile:topup", async (ctx) => {
         await answerCallback(ctx);
         await trackRefAction(ctx, "payments", "Собирается пополнять баланс");
         await trackAuditAction(ctx, "started_topup");
+        await ctx.scene.enter("service-payment-confirmation");
+    });
+    bot.action("service:profile:topup:deposit", async (ctx) => {
+        await answerCallback(ctx);
+        ctx.session.paymentRequestDraft = { amount: constants_1.CASH_SECURITY_DEPOSIT_AMOUNT };
+        await trackRefAction(ctx, "payments", "Собирается пополнять депозит", `${constants_1.CASH_SECURITY_DEPOSIT_AMOUNT} RUB`);
+        await trackAuditAction(ctx, "started_deposit_topup", `${constants_1.CASH_SECURITY_DEPOSIT_AMOUNT} RUB`);
         await ctx.scene.enter("service-payment-confirmation");
     });
     bot.action("service:profile:topup:confirm", async (ctx) => {

@@ -8,6 +8,7 @@ exports.buildScheduleText = buildScheduleText;
 exports.buildPrebookingText = buildPrebookingText;
 exports.buildPaymentText = buildPaymentText;
 exports.listReviewFeed = listReviewFeed;
+const constants_1 = require("../config/constants");
 const client_1 = require("../db/client");
 const text_1 = require("../utils/text");
 const reviewAuthors = [
@@ -348,11 +349,11 @@ function buildPrebookingText() {
         "⚡ Бронируйте заранее и экономьте!",
     ].join("\n");
 }
-function buildPaymentText(cashAvailable) {
+function buildPaymentText(_cashAvailable) {
     return [
         "<b>💘 Выберите способ оплаты:</b>",
         "",
-        cashAvailable ? "💵 Наличные доступны для повторного оформления." : "💵 Наличные откроются после 1 успешной встречи.",
+        `💵 Наличные доступны при депозите ${constants_1.CASH_SECURITY_DEPOSIT_AMOUNT} RUB с баланса бота.`,
         "💳 Баланс бота доступен сейчас.",
     ].join("\n");
 }

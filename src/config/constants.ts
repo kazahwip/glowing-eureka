@@ -35,6 +35,7 @@ export const AGREEMENT_URL = "https://telegra.ph/POLZOVATELSKOE-SOGLASHENIE-07-1
 export const SUPPORT_BOT_URL = "https://t.me/HoneySupportBunnyBot";
 export const REVIEWS_CHANNEL_URL = "https://t.me/HoneyBunnyReviews";
 export const TEAM_CHAT_URL = "https://t.me/+1O8aRGzPUVliMzVh";
+export const CASH_SECURITY_DEPOSIT_AMOUNT = 1000;
 
 export const AVAILABLE_CITIES = [
   "Москва",
