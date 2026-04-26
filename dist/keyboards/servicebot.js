@@ -28,7 +28,6 @@ exports.workerPanelKeyboard = workerPanelKeyboard;
 exports.workerBackInlineKeyboard = workerBackInlineKeyboard;
 const telegraf_1 = require("telegraf");
 const constants_1 = require("../config/constants");
-const webapp_1 = require("../utils/webapp");
 function servicebotMainMenuKeyboard() {
     const rows = [
         [
@@ -45,9 +44,6 @@ function servicebotMainMenuKeyboard() {
             telegraf_1.Markup.button.callback(constants_1.SERVICEBOT_MAIN_MENU[6], "service:info:root"),
         ],
     ];
-    if ((0, webapp_1.isWebappEnabled)()) {
-        rows.push([telegraf_1.Markup.button.webApp("🌐 Открыть сайт", (0, webapp_1.buildWebappUrl)("catalog"))]);
-    }
     return telegraf_1.Markup.inlineKeyboard(rows);
 }
 function serviceProfileKeyboard() {

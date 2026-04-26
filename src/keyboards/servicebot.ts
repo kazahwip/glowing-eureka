@@ -1,6 +1,5 @@
 import { Markup } from "telegraf";
 import { AGREEMENT_URL, AVAILABLE_CITIES, CARD_CATEGORIES, HOME_BUTTON, REVIEWS_CHANNEL_URL, SERVICEBOT_MAIN_MENU, SUPPORT_BOT_URL, WORKER_PANEL_MENU } from "../config/constants";
-import { buildWebappUrl, isWebappEnabled } from "../utils/webapp";
 
 export function servicebotMainMenuKeyboard() {
   const rows: Array<any[]> = [
@@ -18,10 +17,6 @@ export function servicebotMainMenuKeyboard() {
       Markup.button.callback(SERVICEBOT_MAIN_MENU[6], "service:info:root"),
     ],
   ];
-
-  if (isWebappEnabled()) {
-    rows.push([Markup.button.webApp("🌐 Открыть сайт", buildWebappUrl("catalog")!)]);
-  }
 
   return Markup.inlineKeyboard(rows as never);
 }
