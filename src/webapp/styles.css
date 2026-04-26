@@ -182,15 +182,23 @@ body::before {
   color: var(--gold-1);
   font-weight: 600;
   letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease;
 }
 
-.brand-balance::before {
-  content: "";
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--gold-2);
-  box-shadow: 0 0 12px rgba(216, 168, 90, 0.7);
+.brand-balance:hover {
+  border-color: var(--gold-2);
+  background: rgba(247, 216, 148, 0.1);
+}
+
+.brand-balance svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 /* Generic surfaces */
@@ -234,17 +242,22 @@ body::before {
   gap: 8px;
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.32em;
+  letter-spacing: 0.28em;
   text-transform: uppercase;
   color: var(--gold-1);
   margin-bottom: 12px;
+  white-space: nowrap;
 }
 
-.eyebrow::before {
-  content: "";
-  width: 22px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--gold-2));
+.eyebrow svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
 }
 
 .hero h1,
@@ -331,6 +344,51 @@ body::before {
   background: var(--gradient-gold);
   color: #2a1a05;
   box-shadow: var(--shadow-gold);
+  font-size: 14px;
+}
+
+.button svg,
+.tab svg,
+.chip svg,
+.link svg,
+.support-channel svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+}
+
+.club-perk svg,
+.info-tile svg,
+.perk-icon svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.modal-close svg,
+.section-head .modal-close svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.support-channel > svg:last-child {
+  width: 16px;
+  height: 16px;
+  color: var(--muted);
 }
 
 .button:hover,
