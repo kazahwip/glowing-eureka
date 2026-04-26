@@ -101,6 +101,24 @@ export function cardDetailKeyboard(cardId: number, isFavorite: boolean, nextPhot
   ]);
 }
 
+function buildInlineStartUrl(botUsername: string, payload: string) {
+  return `https://t.me/${botUsername}?start=${payload}`;
+}
+
+export function inlineSharedCardKeyboard(botUsername: string, workerUserId: number, cardId: number) {
+  return Markup.inlineKeyboard([
+    [
+      Markup.button.url("💘 Открыть анкету", buildInlineStartUrl(botUsername, `ic_${workerUserId}_${cardId}`)),
+      Markup.button.url("📋 Забронировать", buildInlineStartUrl(botUsername, `ib_${workerUserId}_${cardId}`)),
+    ],
+    [
+      Markup.button.url("📅 Расписание", buildInlineStartUrl(botUsername, `is_${workerUserId}_${cardId}`)),
+      Markup.button.url("⭐ Отзывы", buildInlineStartUrl(botUsername, `ir_${workerUserId}_${cardId}`)),
+    ],
+    [Markup.button.url("🛡 Политика безопасности", buildInlineStartUrl(botUsername, `ip_${workerUserId}_${cardId}`))],
+  ]);
+}
+
 export function modelInfoBackKeyboard(cardId: number) {
   return Markup.inlineKeyboard([[Markup.button.callback("⬅️ Назад к модели", `service:card:${cardId}`)]]);
 }

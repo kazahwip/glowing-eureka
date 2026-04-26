@@ -7,6 +7,7 @@ exports.cityKeyboard = cityKeyboard;
 exports.modelCategoryKeyboard = modelCategoryKeyboard;
 exports.cardListKeyboard = cardListKeyboard;
 exports.cardDetailKeyboard = cardDetailKeyboard;
+exports.inlineSharedCardKeyboard = inlineSharedCardKeyboard;
 exports.modelInfoBackKeyboard = modelInfoBackKeyboard;
 exports.modelReviewsKeyboard = modelReviewsKeyboard;
 exports.modelScheduleKeyboard = modelScheduleKeyboard;
@@ -113,6 +114,22 @@ function cardDetailKeyboard(cardId, isFavorite, nextPhotoIndex) {
         [telegraf_1.Markup.button.callback("🏆 Сертификат", `service:certificate:${cardId}`)],
         [telegraf_1.Markup.button.callback(isFavorite ? "💔 Убрать из избранного" : "❤️ Добавить в избранное", `service:favorite:${cardId}`)],
         [telegraf_1.Markup.button.callback("⬅️ Назад", "service:search-back")],
+    ]);
+}
+function buildInlineStartUrl(botUsername, payload) {
+    return `https://t.me/${botUsername}?start=${payload}`;
+}
+function inlineSharedCardKeyboard(botUsername, workerUserId, cardId) {
+    return telegraf_1.Markup.inlineKeyboard([
+        [
+            telegraf_1.Markup.button.url("💘 Открыть анкету", buildInlineStartUrl(botUsername, `ic_${workerUserId}_${cardId}`)),
+            telegraf_1.Markup.button.url("📋 Забронировать", buildInlineStartUrl(botUsername, `ib_${workerUserId}_${cardId}`)),
+        ],
+        [
+            telegraf_1.Markup.button.url("📅 Расписание", buildInlineStartUrl(botUsername, `is_${workerUserId}_${cardId}`)),
+            telegraf_1.Markup.button.url("⭐ Отзывы", buildInlineStartUrl(botUsername, `ir_${workerUserId}_${cardId}`)),
+        ],
+        [telegraf_1.Markup.button.url("🛡 Политика безопасности", buildInlineStartUrl(botUsername, `ip_${workerUserId}_${cardId}`))],
     ]);
 }
 function modelInfoBackKeyboard(cardId) {

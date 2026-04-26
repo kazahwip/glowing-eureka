@@ -8,6 +8,7 @@ const text_1 = require("../utils/text");
 const ACTION_LABELS = {
     "/start": "Открыл Honey Bunny",
     inline_query: "Искал анкету через inline-режим",
+    opened_inline_card_link: "Открыл ссылку из inline-карточки",
     opened_home: "Открыл главное меню",
     opened_catalog: "Открыл каталог",
     opened_club: "Открыл VIP-клуб",

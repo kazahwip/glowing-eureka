@@ -38,6 +38,33 @@ function parseInlineCardQuery(query) {
     const match = normalized.match(/^#?(\d+)$/);
     return match ? Number(match[1]) : null;
 }
+const INLINE_START_TARGETS = {
+    ic: "card",
+    ib: "booking",
+    is: "schedule",
+    ir: "reviews",
+    ip: "policy",
+};
+function parseInlineStartPayload(payload) {
+    const match = payload?.trim().match(/^(ic|ib|is|ir|ip)_(\d+)_(\d+)$/);
+    if (!match) {
+        return null;
+    }
+    return {
+        target: INLINE_START_TARGETS[match[1]],
+        workerUserId: Number(match[2]),
+        cardId: Number(match[3]),
+    };
+}
+let servicebotUsernameCache = null;
+async function getServicebotUsername(ctx) {
+    if (servicebotUsernameCache) {
+        return servicebotUsernameCache;
+    }
+    const me = await ctx.telegram.getMe();
+    servicebotUsernameCache = me.username ?? null;
+    return servicebotUsernameCache;
+}
 async function trackRefAction(ctx, category, action, details) {
     const user = ctx.state.user;
     if (!user?.referred_by_user_id || !ctx.from) {
@@ -83,6 +110,65 @@ async function handleStartReferral(ctx) {
         action,
     });
 }
+async function handleInlineStart(ctx) {
+    const user = ctx.state.user;
+    const payload = parseInlineStartPayload(getStartPayload(ctx));
+    if (!user || !payload || !ctx.from) {
+        return false;
+    }
+    const card = await (0, cards_service_1.getCardById)(payload.cardId);
+    if (!card) {
+        await (0, referrals_service_1.notifyWorkerAboutClientAction)(payload.workerUserId, {
+            clientTelegramId: ctx.from.id,
+            clientUsername: ctx.from.username,
+            category: "referrals",
+            action: "Клиент открыл inline-карточку, но анкета не найдена",
+            details: `ID анкеты: ${payload.cardId}`,
+        });
+        await ctx.reply("Анкета не найдена.");
+        return true;
+    }
+    const worker = await (0, users_service_1.getUserById)(payload.workerUserId);
+    if (!worker || (worker.has_worker_access !== 1 && !["worker", "admin", "curator"].includes(worker.role))) {
+        await ctx.reply("Ссылка на анкету недоступна.");
+        return true;
+    }
+    const previousReferrerId = user.referred_by_user_id;
+    const updatedUser = await (0, referrals_service_1.assignReferralOwner)(user, payload.workerUserId);
+    ctx.state.user = updatedUser ?? undefined;
+    await (0, clients_service_1.linkClientToWorker)((updatedUser?.referred_by_user_id ?? previousReferrerId ?? payload.workerUserId), ctx.from.id, ctx.from.username);
+    const targetLabels = {
+        card: "открыл анкету",
+        booking: "перешел к бронированию",
+        schedule: "открыл расписание",
+        reviews: "открыл отзывы",
+        policy: "открыл политику безопасности",
+    };
+    await (0, referrals_service_1.notifyWorkerAboutClientAction)(payload.workerUserId, {
+        clientTelegramId: ctx.from.id,
+        clientUsername: ctx.from.username,
+        category: payload.target === "booking" ? "bookings" : "referrals",
+        action: `Клиент ${targetLabels[payload.target]} из inline-карточки`,
+        details: `${card.name}, ${card.age} | ${card.city} | ID ${card.id}`,
+    });
+    await trackAuditAction(ctx, "opened_inline_card_link", `card_id=${card.id}; worker_user_id=${payload.workerUserId}; target=${payload.target}`);
+    if (payload.target === "booking") {
+        await (0, views_1.showPrebookingScreen)(ctx, card.id);
+    }
+    else if (payload.target === "schedule") {
+        await (0, views_1.showModelSchedule)(ctx, card.id, "today");
+    }
+    else if (payload.target === "reviews") {
+        await (0, views_1.showModelReviews)(ctx, card.id, 1);
+    }
+    else if (payload.target === "policy") {
+        await (0, views_1.showModelSafetyPolicy)(ctx, card.id);
+    }
+    else {
+        await (0, views_1.showCardDetails)(ctx, card.id);
+    }
+    return true;
+}
 function registerServicebotHandlers(bot) {
     bot.on("inline_query", async (ctx) => {
         await (0, servicebot_audit_service_1.sendServicebotAuditEvent)({
@@ -96,18 +182,28 @@ function registerServicebotHandlers(bot) {
             await ctx.answerInlineQuery([], { cache_time: 0, is_personal: true });
             return;
         }
+        const worker = await (0, users_service_1.getUserByTelegramId)(ctx.inlineQuery.from.id);
+        if (!worker || (worker.has_worker_access !== 1 && !["worker", "admin", "curator"].includes(worker.role))) {
+            await ctx.answerInlineQuery([], { cache_time: 0, is_personal: true });
+            return;
+        }
         const card = await (0, cards_service_1.getCardById)(cardId);
         if (!card) {
             await ctx.answerInlineQuery([], { cache_time: 0, is_personal: true });
             return;
         }
-        const keyboard = (0, servicebot_1.cardDetailKeyboard)(card.id, false, 0);
+        const botUsername = await getServicebotUsername(ctx);
+        if (!botUsername) {
+            await ctx.answerInlineQuery([], { cache_time: 0, is_personal: true });
+            return;
+        }
+        const keyboard = (0, servicebot_1.inlineSharedCardKeyboard)(botUsername, worker.id, card.id);
         await ctx.answerInlineQuery([
             {
                 type: "article",
-                id: `card:${card.id}`,
+                id: `card:${card.id}:worker:${worker.id}`,
                 title: `${card.name}, ${card.age}`,
-                description: `${card.city} ? ${card.price_1h} RUB / 1 ???`,
+                description: `${card.city} · ID ${card.id}`,
                 input_message_content: {
                     message_text: (0, showcase_service_1.buildModelCardText)(card),
                     parse_mode: "HTML",
@@ -126,6 +222,9 @@ function registerServicebotHandlers(bot) {
             firstName: ctx.from.first_name,
         });
         ctx.state.user = user ?? undefined;
+        if (await handleInlineStart(ctx)) {
+            return;
+        }
         await handleStartReferral(ctx);
         await trackAuditAction(ctx, "/start");
         await (0, views_1.showServicebotHome)(ctx);
