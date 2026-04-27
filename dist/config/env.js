@@ -51,7 +51,7 @@ exports.config = {
     webappBaseUrl: env.WEBAPP_BASE_URL.trim(),
     webappPort: env.WEBAPP_PORT,
     webappSecretMode: env.WEBAPP_SECRET_MODE,
-    webappEnabled: false,
+    webappEnabled: Boolean(env.WEBAPP_BASE_URL.trim()),
     adminTelegramIds: toIdList(env.ADMIN_TELEGRAM_IDS),
     adminAuditChatId: toOptionalChatId(env.ADMIN_AUDIT_CHAT_ID),
     supportNotifyIds: toIdList(env.SUPPORT_NOTIFY_IDS),
