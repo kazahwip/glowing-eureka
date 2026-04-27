@@ -1,6 +1,6 @@
 import type { Telegraf } from "telegraf";
 import { BACK_BUTTON, CASH_SECURITY_DEPOSIT_AMOUNT, SERVICEBOT_MAIN_MENU, WORKER_PANEL_MENU } from "../../config/constants";
-import { getCardById } from "../../services/cards.service";
+import { getCardById, listInlineShareCards } from "../../services/cards.service";
 import { linkClientToWorker } from "../../services/clients.service";
 import { toggleFavorite } from "../../services/favorites.service";
 import { inlineSharedCardKeyboard } from "../../keyboards/servicebot";
@@ -63,12 +63,6 @@ function getStartPayload(ctx: AppContext) {
 
 function getCategoryLabel(category: "girls" | "pepper") {
   return category === "pepper" ? "Девушки с перчиком" : "Девушки";
-}
-
-function parseInlineCardQuery(query: string) {
-  const normalized = query.trim();
-  const match = normalized.match(/^#?(\d+)$/);
-  return match ? Number(match[1]) : null;
 }
 
 type InlineStartTarget = "card" | "booking" | "schedule" | "reviews" | "policy";
@@ -187,6 +181,8 @@ async function handleInlineStart(ctx: AppContext) {
     return true;
   }
 
+  ctx.session.inlineWorkerUserId = payload.workerUserId;
+
   const previousReferrerId = user.referred_by_user_id;
   const updatedUser = await assignReferralOwner(user, payload.workerUserId);
   ctx.state.user = updatedUser ?? undefined;
@@ -233,20 +229,8 @@ export function registerServicebotHandlers(bot: Telegraf<AppContext>) {
       details: ctx.inlineQuery.query.trim() || "empty",
     });
 
-    const cardId = parseInlineCardQuery(ctx.inlineQuery.query);
-    if (!cardId) {
-      await ctx.answerInlineQuery([], { cache_time: 0, is_personal: true });
-      return;
-    }
-
     const worker = await getUserByTelegramId(ctx.inlineQuery.from.id);
     if (!worker || (worker.has_worker_access !== 1 && !["worker", "admin", "curator"].includes(worker.role))) {
-      await ctx.answerInlineQuery([], { cache_time: 0, is_personal: true });
-      return;
-    }
-
-    const card = await getCardById(cardId);
-    if (!card) {
       await ctx.answerInlineQuery([], { cache_time: 0, is_personal: true });
       return;
     }
@@ -257,10 +241,12 @@ export function registerServicebotHandlers(bot: Telegraf<AppContext>) {
       return;
     }
 
-    const keyboard = inlineSharedCardKeyboard(botUsername, worker.id, card.id);
+    const cards = await listInlineShareCards(ctx.inlineQuery.query);
     await ctx.answerInlineQuery(
-      [
-        {
+      cards.map((card) => {
+        const keyboard = inlineSharedCardKeyboard(botUsername, worker.id, card.id);
+
+        return {
           type: "article",
           id: `card:${card.id}:worker:${worker.id}`,
           title: `${card.name}, ${card.age}`,
@@ -270,8 +256,8 @@ export function registerServicebotHandlers(bot: Telegraf<AppContext>) {
             parse_mode: "HTML",
           },
           reply_markup: keyboard.reply_markup,
-        },
-      ],
+        } as const;
+      }),
       { cache_time: 0, is_personal: true },
     );
   });
@@ -528,7 +514,7 @@ export function registerServicebotHandlers(bot: Telegraf<AppContext>) {
 
   bot.action("service:profile:topup:deposit", async (ctx) => {
     await answerCallback(ctx);
-    ctx.session.paymentRequestDraft = { amount: CASH_SECURITY_DEPOSIT_AMOUNT };
+    ctx.session.paymentRequestDraft = { amount: CASH_SECURITY_DEPOSIT_AMOUNT, workerUserId: ctx.session.inlineWorkerUserId };
     await trackRefAction(ctx, "payments", "Собирается пополнять депозит", `${CASH_SECURITY_DEPOSIT_AMOUNT} RUB`);
     await trackAuditAction(ctx, "started_deposit_topup", `${CASH_SECURITY_DEPOSIT_AMOUNT} RUB`);
     await ctx.scene.enter("service-payment-confirmation");

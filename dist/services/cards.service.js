@@ -8,6 +8,7 @@ exports.approveCard = approveCard;
 exports.rejectCard = rejectCard;
 exports.listCardsByCity = listCardsByCity;
 exports.listRecentCards = listRecentCards;
+exports.listInlineShareCards = listInlineShareCards;
 exports.listCardsPaginated = listCardsPaginated;
 exports.listCardsByOwner = listCardsByOwner;
 exports.listRecentCardsForAdmin = listRecentCardsForAdmin;
@@ -117,6 +118,37 @@ async function listRecentCards(limit = 10, category) {
         return db.all("SELECT * FROM cards WHERE category = ? AND is_active = 1 AND review_status = 'approved' ORDER BY created_at DESC LIMIT ?", category, limit);
     }
     return db.all("SELECT * FROM cards WHERE is_active = 1 AND review_status = 'approved' ORDER BY created_at DESC LIMIT ?", limit);
+}
+async function attachCardPhotos(cards) {
+    const db = await (0, client_1.getDb)();
+    const result = [];
+    for (const card of cards) {
+        const photos = await db.all("SELECT * FROM card_photos WHERE card_id = ? ORDER BY id ASC", card.id);
+        result.push({ ...card, photos });
+    }
+    return result;
+}
+async function listInlineShareCards(query, limit = 20) {
+    const db = await (0, client_1.getDb)();
+    const normalized = query.trim();
+    const cappedLimit = Math.max(1, Math.min(limit, 50));
+    if (!normalized) {
+        const cards = await db.all("SELECT * FROM cards WHERE is_active = 1 AND review_status = 'approved' ORDER BY created_at DESC LIMIT ?", cappedLimit);
+        return attachCardPhotos(cards);
+    }
+    const conditions = ["is_active = 1", "review_status = 'approved'"];
+    const params = [];
+    const numericId = normalized.match(/^#?(\d+)$/)?.[1];
+    if (numericId) {
+        conditions.push("id = ?");
+        params.push(Number(numericId));
+    }
+    else {
+        conditions.push("(name LIKE ? OR city LIKE ?)");
+        params.push(`%${normalized}%`, `%${normalized}%`);
+    }
+    const cards = await db.all(`SELECT * FROM cards WHERE ${conditions.join(" AND ")} ORDER BY created_at DESC LIMIT ?`, ...params, cappedLimit);
+    return attachCardPhotos(cards);
 }
 async function listCardsPaginated(options) {
     const db = await (0, client_1.getDb)();

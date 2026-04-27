@@ -51,6 +51,7 @@ export interface AdminProfitDraft {
 
 export interface PaymentRequestDraft {
   amount?: number;
+  workerUserId?: number;
 }
 
 export interface WithdrawRequestDraft {
@@ -87,6 +88,7 @@ export interface AppSession extends Scenes.WizardSession<AppSceneSessionData> {
   profitReportDraft?: ProfitReportDraft;
   adminWithdrawBalanceDraft?: AdminWithdrawBalanceDraft;
   adminProfitMetricsDraft?: AdminProfitMetricsDraft;
+  inlineWorkerUserId?: number;
 }
 
 export interface AppContext extends Scenes.WizardContext<AppSceneSessionData> {

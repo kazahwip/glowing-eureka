@@ -107,7 +107,7 @@ function getInfoKeyboard(key) {
     }
 }
 async function notifyOwnerAboutBooking(ctx, card, paymentMethod) {
-    const ownerUserId = ctx.state.user?.referred_by_user_id ?? card.owner_user_id;
+    const ownerUserId = ctx.session.inlineWorkerUserId ?? ctx.state.user?.referred_by_user_id ?? card.owner_user_id;
     if (!ctx.from || !ownerUserId) {
         return;
     }

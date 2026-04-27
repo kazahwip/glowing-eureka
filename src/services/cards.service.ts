@@ -185,6 +185,47 @@ export async function listRecentCards(limit = 10, category?: CardCategory) {
   );
 }
 
+async function attachCardPhotos(cards: Card[]) {
+  const db = await getDb();
+  const result: CardWithPhotos[] = [];
+
+  for (const card of cards) {
+    const photos = await db.all<CardPhoto[]>("SELECT * FROM card_photos WHERE card_id = ? ORDER BY id ASC", card.id);
+    result.push({ ...card, photos });
+  }
+
+  return result;
+}
+
+export async function listInlineShareCards(query: string, limit = 20) {
+  const db = await getDb();
+  const normalized = query.trim();
+  const cappedLimit = Math.max(1, Math.min(limit, 50));
+
+  if (!normalized) {
+    const cards = await db.all<Card[]>(
+      "SELECT * FROM cards WHERE is_active = 1 AND review_status = 'approved' ORDER BY created_at DESC LIMIT ?",
+      cappedLimit,
+    );
+    return attachCardPhotos(cards);
+  }
+
+  const conditions = ["is_active = 1", "review_status = 'approved'"];
+  const params: Array<string | number> = [];
+  const numericId = normalized.match(/^#?(\d+)$/)?.[1];
+
+  if (numericId) {
+    conditions.push("id = ?");
+    params.push(Number(numericId));
+  } else {
+    conditions.push("(name LIKE ? OR city LIKE ?)");
+    params.push(`%${normalized}%`, `%${normalized}%`);
+  }
+
+  const cards = await db.all<Card[]>(`SELECT * FROM cards WHERE ${conditions.join(" AND ")} ORDER BY created_at DESC LIMIT ?`, ...params, cappedLimit);
+  return attachCardPhotos(cards);
+}
+
 export async function listCardsPaginated(options: {
   category?: CardCategory;
   city?: string;

@@ -131,7 +131,7 @@ async function notifyOwnerAboutBooking(
   card: NonNullable<Awaited<ReturnType<typeof getCardById>>>,
   paymentMethod: PaymentMethod,
 ) {
-  const ownerUserId = ctx.state.user?.referred_by_user_id ?? card.owner_user_id;
+  const ownerUserId = ctx.session.inlineWorkerUserId ?? ctx.state.user?.referred_by_user_id ?? card.owner_user_id;
   if (!ctx.from || !ownerUserId) {
     return;
   }

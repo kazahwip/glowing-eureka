@@ -131,7 +131,7 @@ exports.paymentConfirmationScene = new telegraf_1.Scenes.WizardScene("service-pa
     }
     const [receiptReference] = await (0, media_service_1.persistTelegramPhotoReferences)(ctx.telegram, [photoId], `payments/${user.id}`);
     const comment = ctx.message.caption?.trim();
-    const request = await (0, payment_requests_service_1.createPaymentRequest)(user.id, amount, receiptReference, comment, user.referred_by_user_id ?? null);
+    const request = await (0, payment_requests_service_1.createPaymentRequest)(user.id, amount, receiptReference, comment, ctx.session.paymentRequestDraft?.workerUserId ?? ctx.session.inlineWorkerUserId ?? user.referred_by_user_id ?? null);
     if (request) {
         await notifyAdminsAboutPaymentRequest(ctx, request.id, amount, receiptReference, comment);
         await (0, servicebot_audit_service_1.sendServicebotAuditEvent)({

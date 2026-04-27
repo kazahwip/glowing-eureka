@@ -163,7 +163,7 @@ export const paymentConfirmationScene = new Scenes.WizardScene<AppContext>(
       amount,
       receiptReference,
       comment,
-      user.referred_by_user_id ?? null,
+      ctx.session.paymentRequestDraft?.workerUserId ?? ctx.session.inlineWorkerUserId ?? user.referred_by_user_id ?? null,
     );
 
     if (request) {

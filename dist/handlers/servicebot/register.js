@@ -33,11 +33,6 @@ function getStartPayload(ctx) {
 function getCategoryLabel(category) {
     return category === "pepper" ? "Девушки с перчиком" : "Девушки";
 }
-function parseInlineCardQuery(query) {
-    const normalized = query.trim();
-    const match = normalized.match(/^#?(\d+)$/);
-    return match ? Number(match[1]) : null;
-}
 const INLINE_START_TARGETS = {
     ic: "card",
     ib: "booking",
@@ -133,6 +128,7 @@ async function handleInlineStart(ctx) {
         await ctx.reply("Ссылка на анкету недоступна.");
         return true;
     }
+    ctx.session.inlineWorkerUserId = payload.workerUserId;
     const previousReferrerId = user.referred_by_user_id;
     const updatedUser = await (0, referrals_service_1.assignReferralOwner)(user, payload.workerUserId);
     ctx.state.user = updatedUser ?? undefined;
@@ -177,18 +173,8 @@ function registerServicebotHandlers(bot) {
             action: "inline_query",
             details: ctx.inlineQuery.query.trim() || "empty",
         });
-        const cardId = parseInlineCardQuery(ctx.inlineQuery.query);
-        if (!cardId) {
-            await ctx.answerInlineQuery([], { cache_time: 0, is_personal: true });
-            return;
-        }
         const worker = await (0, users_service_1.getUserByTelegramId)(ctx.inlineQuery.from.id);
         if (!worker || (worker.has_worker_access !== 1 && !["worker", "admin", "curator"].includes(worker.role))) {
-            await ctx.answerInlineQuery([], { cache_time: 0, is_personal: true });
-            return;
-        }
-        const card = await (0, cards_service_1.getCardById)(cardId);
-        if (!card) {
             await ctx.answerInlineQuery([], { cache_time: 0, is_personal: true });
             return;
         }
@@ -197,9 +183,10 @@ function registerServicebotHandlers(bot) {
             await ctx.answerInlineQuery([], { cache_time: 0, is_personal: true });
             return;
         }
-        const keyboard = (0, servicebot_1.inlineSharedCardKeyboard)(botUsername, worker.id, card.id);
-        await ctx.answerInlineQuery([
-            {
+        const cards = await (0, cards_service_1.listInlineShareCards)(ctx.inlineQuery.query);
+        await ctx.answerInlineQuery(cards.map((card) => {
+            const keyboard = (0, servicebot_1.inlineSharedCardKeyboard)(botUsername, worker.id, card.id);
+            return {
                 type: "article",
                 id: `card:${card.id}:worker:${worker.id}`,
                 title: `${card.name}, ${card.age}`,
@@ -209,8 +196,8 @@ function registerServicebotHandlers(bot) {
                     parse_mode: "HTML",
                 },
                 reply_markup: keyboard.reply_markup,
-            },
-        ], { cache_time: 0, is_personal: true });
+            };
+        }), { cache_time: 0, is_personal: true });
     });
     bot.start(async (ctx) => {
         if (!ctx.from) {
@@ -422,7 +409,7 @@ function registerServicebotHandlers(bot) {
     });
     bot.action("service:profile:topup:deposit", async (ctx) => {
         await answerCallback(ctx);
-        ctx.session.paymentRequestDraft = { amount: constants_1.CASH_SECURITY_DEPOSIT_AMOUNT };
+        ctx.session.paymentRequestDraft = { amount: constants_1.CASH_SECURITY_DEPOSIT_AMOUNT, workerUserId: ctx.session.inlineWorkerUserId };
         await trackRefAction(ctx, "payments", "Собирается пополнять депозит", `${constants_1.CASH_SECURITY_DEPOSIT_AMOUNT} RUB`);
         await trackAuditAction(ctx, "started_deposit_topup", `${constants_1.CASH_SECURITY_DEPOSIT_AMOUNT} RUB`);
         await ctx.scene.enter("service-payment-confirmation");
