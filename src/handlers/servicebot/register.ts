@@ -9,7 +9,9 @@ import { assignReferralOwner, notifyWorkerAboutClientAction, parseReferralPayloa
 import { buildModelCardText } from "../../services/showcase.service";
 import { getUserById, getUserByTelegramId, grantWorkerAccess, registerServicebotUser } from "../../services/users.service";
 import type { AppContext } from "../../types/context";
-import type { WorkerSignalCategory } from "../../types/entities";
+import type { CardWithPhotos, WorkerSignalCategory } from "../../types/entities";
+import { escapeHtml, formatMoney } from "../../utils/text";
+import { buildMediaUrl } from "../../utils/webapp";
 import {
   handlePaymentChoice,
   showCardDetails,
@@ -129,6 +131,39 @@ async function trackAuditAction(ctx: AppContext, action: string, details?: strin
   });
 }
 
+function getInlinePhotoPayload(card: CardWithPhotos) {
+  const reference = card.photos[0]?.telegram_file_id;
+  if (!reference) {
+    return null;
+  }
+
+  if (reference.startsWith("local:")) {
+    const photoUrl = buildMediaUrl(reference);
+    return photoUrl ? { photo_url: photoUrl, thumbnail_url: photoUrl } : null;
+  }
+
+  return { photo_file_id: reference };
+}
+
+function buildInlineModelCardCaption(card: CardWithPhotos) {
+  return [
+    `💘 <b>${escapeHtml(card.name)}</b> (${card.age}) (${escapeHtml(card.city)})`,
+    "",
+    "✅ Верифицированная модель",
+    "",
+    "<b>🔐 УСЛОВИЯ:</b>",
+    "• Депозит для брони: 1 000 ₽.",
+    "• В подарок клиент получает приватный канал модели.",
+    "",
+    "<b>🏆 СТОИМОСТЬ ВСТРЕЧИ:</b>",
+    `⏰ 1 час: ${formatMoney(card.price_1h)}`,
+    `🏙 3 часа: ${formatMoney(card.price_3h)}`,
+    `🌃 Смена: ${formatMoney(card.price_full_day)}`,
+    "",
+    "✅ Для оформления нажмите «Забронировать»",
+  ].join("\n");
+}
+
 async function handleStartReferral(ctx: AppContext) {
   const user = ctx.state.user;
   const payload = parseReferralPayload(getStartPayload(ctx));
@@ -245,18 +280,30 @@ export function registerServicebotHandlers(bot: Telegraf<AppContext>) {
     await ctx.answerInlineQuery(
       cards.map((card) => {
         const keyboard = inlineSharedCardKeyboard(botUsername, worker.id, card.id);
+        const photoPayload = getInlinePhotoPayload(card);
 
-        return {
-          type: "article",
-          id: `card:${card.id}:worker:${worker.id}`,
-          title: `${card.name}, ${card.age}`,
-          description: `${card.city} · ID ${card.id}`,
-          input_message_content: {
-            message_text: buildModelCardText(card),
-            parse_mode: "HTML",
-          },
-          reply_markup: keyboard.reply_markup,
-        } as const;
+        return photoPayload
+          ? {
+              type: "photo",
+              id: `card:${card.id}:worker:${worker.id}`,
+              title: `${card.name}, ${card.age}`,
+              description: `${card.city} · ID ${card.id}`,
+              caption: buildInlineModelCardCaption(card),
+              parse_mode: "HTML",
+              reply_markup: keyboard.reply_markup,
+              ...photoPayload,
+            }
+          : {
+              type: "article",
+              id: `card:${card.id}:worker:${worker.id}`,
+              title: `${card.name}, ${card.age}`,
+              description: `${card.city} · ID ${card.id}`,
+              input_message_content: {
+                message_text: buildModelCardText(card),
+                parse_mode: "HTML",
+              },
+              reply_markup: keyboard.reply_markup,
+            } as const;
       }),
       { cache_time: 0, is_personal: true },
     );

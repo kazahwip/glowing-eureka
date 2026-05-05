@@ -127,7 +127,7 @@ function inlineSharedCardKeyboard(botUsername, workerUserId, cardId) {
         ],
         [
             telegraf_1.Markup.button.url("📅 Расписание", buildInlineStartUrl(botUsername, `is_${workerUserId}_${cardId}`)),
-            telegraf_1.Markup.button.url("⭐ Отзывы", buildInlineStartUrl(botUsername, `ir_${workerUserId}_${cardId}`)),
+            telegraf_1.Markup.button.url("⭐ Отзывы", constants_1.REVIEWS_CHANNEL_URL),
         ],
         [telegraf_1.Markup.button.url("🛡 Политика безопасности", buildInlineStartUrl(botUsername, `ip_${workerUserId}_${cardId}`))],
     ]);

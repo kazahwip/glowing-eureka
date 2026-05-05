@@ -10,6 +10,8 @@ const servicebot_audit_service_1 = require("../../services/servicebot-audit.serv
 const referrals_service_1 = require("../../services/referrals.service");
 const showcase_service_1 = require("../../services/showcase.service");
 const users_service_1 = require("../../services/users.service");
+const text_1 = require("../../utils/text");
+const webapp_1 = require("../../utils/webapp");
 const views_1 = require("./views");
 async function answerCallback(ctx) {
     if ("callbackQuery" in ctx.update) {
@@ -84,6 +86,35 @@ async function trackAuditAction(ctx, action, details) {
         action,
         details,
     });
+}
+function getInlinePhotoPayload(card) {
+    const reference = card.photos[0]?.telegram_file_id;
+    if (!reference) {
+        return null;
+    }
+    if (reference.startsWith("local:")) {
+        const photoUrl = (0, webapp_1.buildMediaUrl)(reference);
+        return photoUrl ? { photo_url: photoUrl, thumbnail_url: photoUrl } : null;
+    }
+    return { photo_file_id: reference };
+}
+function buildInlineModelCardCaption(card) {
+    return [
+        `💘 <b>${(0, text_1.escapeHtml)(card.name)}</b> (${card.age}) (${(0, text_1.escapeHtml)(card.city)})`,
+        "",
+        "✅ Верифицированная модель",
+        "",
+        "<b>🔐 УСЛОВИЯ:</b>",
+        "• Депозит для брони: 1 000 ₽.",
+        "• В подарок клиент получает приватный канал модели.",
+        "",
+        "<b>🏆 СТОИМОСТЬ ВСТРЕЧИ:</b>",
+        `⏰ 1 час: ${(0, text_1.formatMoney)(card.price_1h)}`,
+        `🏙 3 часа: ${(0, text_1.formatMoney)(card.price_3h)}`,
+        `🌃 Смена: ${(0, text_1.formatMoney)(card.price_full_day)}`,
+        "",
+        "✅ Для оформления нажмите «Забронировать»",
+    ].join("\n");
 }
 async function handleStartReferral(ctx) {
     const user = ctx.state.user;
@@ -186,17 +217,29 @@ function registerServicebotHandlers(bot) {
         const cards = await (0, cards_service_1.listInlineShareCards)(ctx.inlineQuery.query);
         await ctx.answerInlineQuery(cards.map((card) => {
             const keyboard = (0, servicebot_1.inlineSharedCardKeyboard)(botUsername, worker.id, card.id);
-            return {
-                type: "article",
-                id: `card:${card.id}:worker:${worker.id}`,
-                title: `${card.name}, ${card.age}`,
-                description: `${card.city} · ID ${card.id}`,
-                input_message_content: {
-                    message_text: (0, showcase_service_1.buildModelCardText)(card),
+            const photoPayload = getInlinePhotoPayload(card);
+            return photoPayload
+                ? {
+                    type: "photo",
+                    id: `card:${card.id}:worker:${worker.id}`,
+                    title: `${card.name}, ${card.age}`,
+                    description: `${card.city} · ID ${card.id}`,
+                    caption: buildInlineModelCardCaption(card),
                     parse_mode: "HTML",
-                },
-                reply_markup: keyboard.reply_markup,
-            };
+                    reply_markup: keyboard.reply_markup,
+                    ...photoPayload,
+                }
+                : {
+                    type: "article",
+                    id: `card:${card.id}:worker:${worker.id}`,
+                    title: `${card.name}, ${card.age}`,
+                    description: `${card.city} · ID ${card.id}`,
+                    input_message_content: {
+                        message_text: (0, showcase_service_1.buildModelCardText)(card),
+                        parse_mode: "HTML",
+                    },
+                    reply_markup: keyboard.reply_markup,
+                };
         }), { cache_time: 0, is_personal: true });
     });
     bot.start(async (ctx) => {

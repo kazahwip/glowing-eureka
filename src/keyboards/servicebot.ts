@@ -113,7 +113,7 @@ export function inlineSharedCardKeyboard(botUsername: string, workerUserId: numb
     ],
     [
       Markup.button.url("📅 Расписание", buildInlineStartUrl(botUsername, `is_${workerUserId}_${cardId}`)),
-      Markup.button.url("⭐ Отзывы", buildInlineStartUrl(botUsername, `ir_${workerUserId}_${cardId}`)),
+      Markup.button.url("⭐ Отзывы", REVIEWS_CHANNEL_URL),
     ],
     [Markup.button.url("🛡 Политика безопасности", buildInlineStartUrl(botUsername, `ip_${workerUserId}_${cardId}`))],
   ]);
